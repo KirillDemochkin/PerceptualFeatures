@@ -47,7 +47,7 @@ class VGG(nn.Module):
         out = self.classifier(out)
         if self.get_perceptual_feats:
             Out = []
-            for k, v in self.Out.iteritems():
+            for k, v in self.Out.items():
                 Out.append(v)
             Out.append(out)
             return out, Out

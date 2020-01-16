@@ -91,7 +91,7 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         if self.get_perceptual_feats:
-            for k, v in self.Out.iteritems():
+            for k, v in self.Out.items():
                 Out.append(v)
             Out.append(out)
             return out, Out
