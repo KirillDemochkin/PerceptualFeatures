@@ -1,11 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from models.vgg import Vgg16
-from models.generator_models import DCGAN
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+
 import numpy as np
+import os
+
+from models.vgg import Vgg16
+from models.generator_models import DCGAN
+
 netEnc = []
 
 VGG_PATH = "./exported_models/vgg19.pt"
@@ -28,7 +32,8 @@ imageNetNormMin.resize_(1, 3, 1, 1)
 imageNetNormRange = torch.tensor(imageNetNormRange, dtype=torch.float32).to(device)
 imageNetNormRange.resize_(1, 3, 1, 1)
 
-transform = [transforms.ToTensor()]
+transform = [transforms.ToTensor(),
+             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
 
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True, num_workers=2)
@@ -76,12 +81,41 @@ def extract_features_from_batch(batch):
     return torch.cat(feats, dim=0)
 
 
-with torch.no_grad():
-    extracted = extract_features_from_batch(torch.empty(4, 3, 32, 32).normal_(mean=0, std=1).to(device))
-    print(extracted.shape)
+real_mean = torch.load('./data/mean.pt') if os.path.exists('./data/mean.pt') else None
+real_sqr = None
+real_var = torch.load('./data/var.pt') if os.path.exists('./data/var.pt') else None
+num_processed = 0
+if not real_mean:
+    for i, data in enumerate(trainloader):
+        img_batch, _ = data
+        img_batch = img_batch.to(device)
+        extracted_batch = extract_features_from_batch(img_batch)
+
+        if not real_mean:
+            real_mean = torch.sum(extracted_batch, dim=0).detach()
+            real_sqr = torch.sum(extracted_batch ** 2, dim=0).detach()
+        else:
+            real_mean += torch.sum(extracted_batch, dim=0).detach()
+            real_sqr += torch.sum(extracted_batch ** 2, dim=0).detach()
+
+        num_processed += img_batch.size(0)
+
+    real_var = (real_sqr - (real_mean ** 2) / num_processed) / (
+                num_processed - 1)
+    real_mean = real_mean / num_processed
+
+torch.save(real_mean, './data/mean.pt')
+torch.save(real_var, './data/var.pt')
 # training loop
 # saving models/images
 
 
+def save_models(suffix=""):
+    # saving current best model
+    torch.save(generator.state_dict(), '%s/generator%s.pth' % ('./models', suffix))
+    torch.save(mean_net.state_dict(), '%s/netMean%s.pth' % ('./models', suffix))
+    torch.save(var_net.state_dict(), '%s/netVar%s.pth' % ('./models', suffix))
 
 
+def sample_images():
+    pass
