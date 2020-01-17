@@ -24,7 +24,7 @@ class DCGAN(nn.Module):
         self.tanh = nn.Tanh()
 
     def forward(self, x):
-        x = self.first_relu(self.first_bn(self.deconv1))
+        x = self.first_relu(self.first_bn(self.deconv1(x)))
         x = self.deconv2(x)
         x = self.deconv3(x)
         x = self.conv1(x)
