@@ -41,7 +41,7 @@ class Vgg16Full(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(Vgg16Full, self).__init__()
         vgg_pretrained_features = models.vgg16(pretrained=True).features
-        print(vgg_pretrained_features)
+        #print(vgg_pretrained_features)
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -98,4 +98,5 @@ class Vgg16Full(torch.nn.Module):
         h_relu10 = self.slice4(h_relu9)
         h_relu11 = self.slice4(h_relu10)
         h_relu12 = self.slice4(h_relu11)
-        return (h_relu1, h_relu2, h_relu3, h_relu4, h_relu5, h_relu6, h_relu7, h_relu8, h_relu9, h_relu10, h_relu11, h_relu12)
+        res = (h_relu1, h_relu2, h_relu3, h_relu4, h_relu5, h_relu6, h_relu7, h_relu8, h_relu9, h_relu10, h_relu11, h_relu12)
+        return [r.view(r.size(0), -1) for r in res]

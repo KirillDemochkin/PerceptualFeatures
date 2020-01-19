@@ -9,45 +9,44 @@ from tqdm import tqdm
 import numpy as np
 import os
 
-from models.vgg import Vgg16
+from models.vgg import Vgg16Full
 from models.generator_models import DCGAN
 
-netEnc = []
 
-VGG_PATH = "./exported_models/vgg19.pt"
 BATCH_SIZE = 64
 LATENT_DIM = 100
-B1 = 0.5
-LR_G = 0.002
-LR_MV_AVG = 0.002
-NUM_ITERATIONS = 1000
+B1 = 0.8
+LR_G = 5e-5
+LR_MV_AVG = 1e-5
+NUM_ITERATIONS = 2e6
 SAVE_MODEL_ITERS = 20
-SAMPLE_IMGS_ITERS = 10
+SAMPLE_IMGS_ITERS = 5
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 imageNetNormMean = np.asarray([0.485, 0.456, 0.406], dtype=np.float32)
 imageNetNormStd = np.asarray([0.229, 0.224, 0.225], dtype=np.float32)
-imageNetNormMin = -imageNetNormMean / imageNetNormStd
-imageNetNormMax = (1.0 - imageNetNormMean) / imageNetNormStd
-imageNetNormRange = imageNetNormMax - imageNetNormMin
+#imageNetNormMin = -imageNetNormMean / imageNetNormStd
+#imageNetNormMax = (1.0 - imageNetNormMean) / imageNetNormStd
+#imageNetNormRange = imageNetNormMax - imageNetNormMin
 
-imageNetNormMin = torch.tensor(imageNetNormMin, dtype=torch.float32).to(device)
-imageNetNormMin.resize_(1, 3, 1, 1)
-imageNetNormRange = torch.tensor(imageNetNormRange, dtype=torch.float32).to(device)
-imageNetNormRange.resize_(1, 3, 1, 1)
+imageNetNormMean = torch.tensor(imageNetNormMean, dtype=torch.float32).to(device)
+imageNetNormMean.resize_(1, 3, 1, 1)
+imageNetNormStd = torch.tensor(imageNetNormStd, dtype=torch.float32).to(device)
+imageNetNormStd.resize_(1, 3, 1, 1)
 
 transform = transforms.Compose([transforms.ToTensor(),
-                                transforms.Normalize((0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
+
+                                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True, num_workers=0)
 
-test_noise = torch.empty(64, LATENT_DIM, 1, 1).normal_(mean=0, std=1).to(device)
+test_noise = torch.empty(64, LATENT_DIM).normal_(mean=0, std=1).to(device)
 
 print("Loading VGG")
-vgg_pretrained = Vgg16()
+vgg_pretrained = Vgg16Full()
 vgg_pretrained.to(device)
 vgg_pretrained.eval()
 
@@ -104,26 +103,27 @@ real_sqr = None
 real_var = torch.load('./data/var.pt') if os.path.exists('./data/var.pt') else None
 num_processed = 0
 if real_mean is None:
-    for i, data in tqdm(enumerate(trainloader, 1)):
-        img_batch, _ = data
-        img_batch = img_batch.to(device)
-        extracted_batch = extract_features_from_batch(img_batch)
+    with torch.no_grad():
+        for i, data in tqdm(enumerate(trainloader, 1)):
+            img_batch, _ = data
+            img_batch = img_batch.to(device)
+            extracted_batch = extract_features_from_batch(img_batch)
 
-        if real_mean is None:
-            real_mean = torch.sum(extracted_batch, dim=0).detach()
-            real_sqr = torch.sum(extracted_batch ** 2, dim=0).detach()
-        else:
-            real_mean += torch.sum(extracted_batch, dim=0).detach()
-            real_sqr += torch.sum(extracted_batch ** 2, dim=0).detach()
+            if real_mean is None:
+                real_mean = torch.sum(extracted_batch, dim=0)
+                real_sqr = torch.sum(extracted_batch ** 2, dim=0)
+            else:
+                real_mean += torch.sum(extracted_batch, dim=0)
+                real_sqr += torch.sum(extracted_batch ** 2, dim=0)
 
-        num_processed += img_batch.size(0)
+            num_processed += img_batch.size(0)
 
-    real_var = (real_sqr - (real_mean ** 2) / num_processed) / (
-            num_processed - 1)
-    real_mean = real_mean / num_processed
+        real_var = (real_sqr - (real_mean ** 2) / num_processed) / (
+                num_processed - 1)
+        real_mean = real_mean / num_processed
 
-    torch.save(real_mean, './data/mean.pt')
-    torch.save(real_var, './data/var.pt')
+        torch.save(real_mean, './data/mean.pt')
+        torch.save(real_var, './data/var.pt')
 
 # training loop
 avrg_g_var_net_loss = 0.0
@@ -136,9 +136,9 @@ for i in tqdm(range(NUM_ITERATIONS)):
     mean_net.zero_grad()
     var_net.zero_grad()
 
-    noise_batch = torch.empty(BATCH_SIZE, LATENT_DIM, 1, 1).normal_(mean=0, std=1).to(device)
+    noise_batch = torch.empty(BATCH_SIZE, LATENT_DIM).normal_(mean=0, std=1).to(device)
     fake_imgs = generator(noise_batch)
-    fake_imgs = (((fake_imgs + 1) * imageNetNormRange) / 2) + imageNetNormMin
+    fake_imgs = ((fake_imgs + 1) / 2 - imageNetNormMean) / imageNetNormStd
     fake_features = extract_features_from_batch(fake_imgs)
 
     fake_mean = torch.mean(fake_features, 0)
