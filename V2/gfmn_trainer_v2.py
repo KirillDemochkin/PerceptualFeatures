@@ -39,7 +39,7 @@ imageNetNormRange = torch.tensor(imageNetNormRange, dtype=torch.float32).to(devi
 imageNetNormRange.resize_(1, 3, 1, 1)
 
 transform = transforms.Compose([transforms.ToTensor(),
-             transforms.Normalize((0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
+                                transforms.Normalize((0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True, num_workers=0)
@@ -75,14 +75,25 @@ criterionLossL2.to(device)
 optimizerG = optim.Adam(generator.parameters(), LR_G, betas=(B1, 0.999))
 optimizerM = optim.Adam(mean_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+
 # feature extraction
+def save_models(suffix=""):
+    # saving current best model
+    torch.save(generator.state_dict(), '%s/generator%s.pth' % ('./models', suffix))
+    torch.save(mean_net.state_dict(), '%s/netMean%s.pth' % ('./models', suffix))
+    torch.save(var_net.state_dict(), '%s/netVar%s.pth' % ('./models', suffix))
+
+
+def sample_images():
+    test_gen = generator(test_noise)
+    vutils.save_image(test_gen.data[:16], './generated_samples/generated_%d.png' % i + 1, normalize=True)
 
 
 def extract_features_from_batch(batch):
     feats = []
     vgg_out = vgg_pretrained(batch)
-    for i in range(batch.size(0)):
-        ft_sample = torch.cat([ft[i] for ft in vgg_out], dim=0)
+    for j in range(batch.size(0)):
+        ft_sample = torch.cat([ft[j] for ft in vgg_out], dim=0)
         feats.append(ft_sample.view(1, -1))
     return torch.cat(feats, dim=0)
 
@@ -107,15 +118,14 @@ if real_mean is None:
         num_processed += img_batch.size(0)
 
     real_var = (real_sqr - (real_mean ** 2) / num_processed) / (
-                num_processed - 1)
+            num_processed - 1)
     real_mean = real_mean / num_processed
-
 
     torch.save(real_mean, './data/mean.pt')
     torch.save(real_var, './data/var.pt')
 
 # training loop
-avrg_g_var_net_loss= 0.0
+avrg_g_var_net_loss = 0.0
 avrg_g_mean_net_loss = 0.0
 avrg_mean_net_loss = 0.0
 avrg_var_net_loss = 0.0
@@ -160,18 +170,22 @@ for i in range(NUM_ITERATIONS):
     generator_loss.backward()
     optimizerG.step()
 
-# saving models/images
+    # saving models/images
+    if (i + 1) % SAMPLE_IMGS_ITERS == 0:
+        print('[{}/{}] Loss_Gz: {.6f} Loss_GzVar: {.6f} Loss_vMean: {.6f} Loss_vVar: {.6f}'.format
+              (i + 1, NUM_ITERATIONS,
+               avrg_g_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_g_var_net_loss / SAMPLE_IMGS_ITERS,
+               avrg_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_var_net_loss / SAMPLE_IMGS_ITERS))
 
+        generator.eval()
+        with torch.no_grad():
+            sample_images()
 
+        generator.train()
+        avrg_g_var_net_loss = 0.0
+        avrg_g_mean_net_loss = 0.0
+        avrg_mean_net_loss = 0.0
+        avrg_var_net_loss = 0.0
 
-
-
-def save_models(suffix=""):
-    # saving current best model
-    torch.save(generator.state_dict(), '%s/generator%s.pth' % ('./models', suffix))
-    torch.save(mean_net.state_dict(), '%s/netMean%s.pth' % ('./models', suffix))
-    torch.save(var_net.state_dict(), '%s/netVar%s.pth' % ('./models', suffix))
-
-
-def sample_images():
-    pass
+    if (i + 1) % SAVE_MODEL_ITERS == 0:
+        save_models(str(i+1))
