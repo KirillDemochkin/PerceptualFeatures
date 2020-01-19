@@ -165,3 +165,7 @@ var_1.npy
 var_2.npy
 
 var_3.npy
+
+V2/exported_models/
+
+V2/generated_samples/
