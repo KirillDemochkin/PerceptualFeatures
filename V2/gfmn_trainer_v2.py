@@ -15,12 +15,12 @@ from models.generator_models import DCGAN
 
 BATCH_SIZE = 64
 LATENT_DIM = 100
-B1 = 0.8
+B1 = 0.5
 LR_G = 5e-5
 LR_MV_AVG = 1e-5
-NUM_ITERATIONS = 2e6
-SAVE_MODEL_ITERS = 20
-SAMPLE_IMGS_ITERS = 5
+NUM_ITERATIONS = int(2e6)
+SAVE_MODEL_ITERS = 100
+SAMPLE_IMGS_ITERS = 100
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -37,7 +37,6 @@ imageNetNormStd = torch.tensor(imageNetNormStd, dtype=torch.float32).to(device)
 imageNetNormStd.resize_(1, 3, 1, 1)
 
 transform = transforms.Compose([transforms.ToTensor(),
-
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
@@ -86,7 +85,7 @@ def save_models(suffix=""):
 
 def sample_images():
     test_gen = generator(test_noise)
-    vutils.save_image(test_gen.data[:16], './generated_samples/generated_%d.png' % (i + 1), normalize=True)
+    vutils.save_image(test_gen.data[:64], './generated_samples/generated_%d.png' % (i + 1), normalize=True)
 
 
 def extract_features_from_batch(batch):
@@ -189,4 +188,4 @@ for i in tqdm(range(NUM_ITERATIONS)):
         avrg_var_net_loss = 0.0
 
     if (i + 1) % SAVE_MODEL_ITERS == 0:
-        save_models(str(i+1))
+        save_models("")

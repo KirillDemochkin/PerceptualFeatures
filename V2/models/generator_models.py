@@ -72,6 +72,22 @@ class ConBlock(nn.Module):
         return self.relu(self.bn(self.conv(self.pad(x))))
 
 
+class ResGenerator(nn.Module):
+    def __init__(self, latent_dim_size):
+        super(ResGenerator, self).__init__()
+
+    def forward(self, x):
+        pass
+
+
+class ResBlock(nn.Module):
+    def __init__(self):
+        super(ResBlock, self).__init__()
+
+    def forwards(self):
+        pass
+
+
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
