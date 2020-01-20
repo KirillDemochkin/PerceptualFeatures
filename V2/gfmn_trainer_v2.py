@@ -141,14 +141,14 @@ for i in tqdm(range(NUM_ITERATIONS)):
     fake_features = extract_features_from_batch(fake_imgs)
 
     fake_mean = torch.mean(fake_features, 0)
-    real_fake_difference_mean = torch.abs(real_mean.detach() - fake_mean.detach())
+    real_fake_difference_mean = real_mean.detach() - fake_mean.detach()
     mean_net_loss = criterionLossL2(mean_net.weight, real_fake_difference_mean.detach().view(1, -1))
     mean_net_loss.backward()
     avrg_mean_net_loss += mean_net_loss.item()
     optimizerM.step()
 
     fake_var = torch.var(fake_features, 0)
-    real_fake_difference_var = torch.abs(real_var.detach() - fake_var.detach())
+    real_fake_difference_var = real_var.detach() - fake_var.detach()
     var_net_loss = criterionLossL2(var_net.weight, real_fake_difference_var.detach().view(1, -1))
     var_net_loss.backward()
     avrg_var_net_loss += var_net_loss.item()
@@ -160,10 +160,10 @@ for i in tqdm(range(NUM_ITERATIONS)):
     var_diff_real = mean_net(real_var.view(1, -1)).detach()
     var_diff_fake = mean_net(fake_var.view(1, -1))
 
-    g_mean_net_loss = (mean_diff_real - mean_diff_fake)
+    g_mean_net_loss = torch.abs(mean_diff_real - mean_diff_fake)
     avrg_g_mean_net_loss += g_mean_net_loss.item()
 
-    g_var_net_loss = (var_diff_real - var_diff_fake)
+    g_var_net_loss = torch.abs(var_diff_real - var_diff_fake)
     avrg_g_var_net_loss += g_var_net_loss.item()
 
     generator_loss = g_mean_net_loss + g_var_net_loss
@@ -176,7 +176,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
               (i + 1, NUM_ITERATIONS,
                avrg_g_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_g_var_net_loss / SAMPLE_IMGS_ITERS,
                avrg_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_var_net_loss / SAMPLE_IMGS_ITERS))
-
+        os.sys.stdout.flush()
         with torch.no_grad():
             sample_images()
 
