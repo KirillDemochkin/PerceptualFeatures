@@ -31,10 +31,8 @@ imageNetNormStd = np.asarray([0.229, 0.224, 0.225], dtype=np.float32)
 #imageNetNormMax = (1.0 - imageNetNormMean) / imageNetNormStd
 #imageNetNormRange = imageNetNormMax - imageNetNormMin
 
-imageNetNormMean = torch.tensor(imageNetNormMean, dtype=torch.float32).to(device)
-imageNetNormMean.resize_(1, 3, 1, 1)
-imageNetNormStd = torch.tensor(imageNetNormStd, dtype=torch.float32).to(device)
-imageNetNormStd.resize_(1, 3, 1, 1)
+imageNetNormMean = torch.tensor(imageNetNormMean, dtype=torch.float32).view(-1, 1, 1).to(device)
+imageNetNormStd = torch.tensor(imageNetNormStd, dtype=torch.float32).view(-1, 1, 1).to(device)
 
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
@@ -84,8 +82,10 @@ def save_models(suffix=""):
 
 
 def sample_images():
+    generator.eval()
     test_gen = generator(test_noise)
     vutils.save_image(test_gen.data[:64], './generated_samples/generated_%d.png' % (i + 1), normalize=True)
+    generator.train()
 
 
 def extract_features_from_batch(batch):
@@ -131,13 +131,13 @@ avrg_mean_net_loss = 0.0
 avrg_var_net_loss = 0.0
 
 for i in tqdm(range(NUM_ITERATIONS)):
-    vgg_pretrained.zero_grad()
+    generator.zero_grad()
     mean_net.zero_grad()
     var_net.zero_grad()
 
     noise_batch = torch.empty(BATCH_SIZE, LATENT_DIM).normal_(mean=0, std=1).to(device)
     fake_imgs = generator(noise_batch)
-    fake_imgs = ((fake_imgs + 1) / 2 - imageNetNormMean) / imageNetNormStd
+    fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
     fake_features = extract_features_from_batch(fake_imgs)
 
     fake_mean = torch.mean(fake_features, 0)
@@ -177,11 +177,9 @@ for i in tqdm(range(NUM_ITERATIONS)):
                avrg_g_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_g_var_net_loss / SAMPLE_IMGS_ITERS,
                avrg_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_var_net_loss / SAMPLE_IMGS_ITERS))
 
-        generator.eval()
         with torch.no_grad():
             sample_images()
 
-        generator.train()
         avrg_g_var_net_loss = 0.0
         avrg_g_mean_net_loss = 0.0
         avrg_mean_net_loss = 0.0
