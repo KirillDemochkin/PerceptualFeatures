@@ -16,11 +16,11 @@ from models.generator_models import DCGAN
 BATCH_SIZE = 64
 LATENT_DIM = 100
 B1 = 0.5
-LR_G = 5e-5
-LR_MV_AVG = 1e-5
+LR_G = 5e-6
+LR_MV_AVG = 1e-6
 NUM_ITERATIONS = int(2e6)
-SAVE_MODEL_ITERS = 100
-SAMPLE_IMGS_ITERS = 100
+SAVE_MODEL_ITERS = 500
+SAMPLE_IMGS_ITERS = 500
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -141,14 +141,14 @@ for i in tqdm(range(NUM_ITERATIONS)):
     fake_features = extract_features_from_batch(fake_imgs)
 
     fake_mean = torch.mean(fake_features, 0)
-    real_fake_difference_mean = real_mean.detach() - fake_mean.detach()
+    real_fake_difference_mean = torch.abs(real_mean.detach() - fake_mean.detach())
     mean_net_loss = criterionLossL2(mean_net.weight, real_fake_difference_mean.detach().view(1, -1))
     mean_net_loss.backward()
     avrg_mean_net_loss += mean_net_loss.item()
     optimizerM.step()
 
     fake_var = torch.var(fake_features, 0)
-    real_fake_difference_var = real_var.detach() - fake_var.detach()
+    real_fake_difference_var = torch.abs(real_var.detach() - fake_var.detach())
     var_net_loss = criterionLossL2(var_net.weight, real_fake_difference_var.detach().view(1, -1))
     var_net_loss.backward()
     avrg_var_net_loss += var_net_loss.item()
