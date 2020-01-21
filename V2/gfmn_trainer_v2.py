@@ -16,8 +16,8 @@ from models.generator_models import DCGAN
 BATCH_SIZE = 64
 LATENT_DIM = 100
 B1 = 0.5
-LR_G = 5e-6
-LR_MV_AVG = 1e-6
+LR_G = 5e-5
+LR_MV_AVG = 1e-5
 NUM_ITERATIONS = int(2e6)
 SAVE_MODEL_ITERS = 500
 SAMPLE_IMGS_ITERS = 500
@@ -157,8 +157,8 @@ for i in tqdm(range(NUM_ITERATIONS)):
     mean_diff_real = mean_net(real_mean.view(1, -1)).detach()
     mean_diff_fake = mean_net(fake_mean.view(1, -1))
 
-    var_diff_real = mean_net(real_var.view(1, -1)).detach()
-    var_diff_fake = mean_net(fake_var.view(1, -1))
+    var_diff_real = var_net(real_var.view(1, -1)).detach()
+    var_diff_fake = var_net(fake_var.view(1, -1))
 
     g_mean_net_loss = torch.abs(mean_diff_real - mean_diff_fake)
     avrg_g_mean_net_loss += g_mean_net_loss.item()
