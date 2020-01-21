@@ -27,12 +27,12 @@ print(device)
 
 imageNetNormMean = np.asarray([0.485, 0.456, 0.406], dtype=np.float32)
 imageNetNormStd = np.asarray([0.229, 0.224, 0.225], dtype=np.float32)
-#imageNetNormMin = -imageNetNormMean / imageNetNormStd
-#imageNetNormMax = (1.0 - imageNetNormMean) / imageNetNormStd
-#imageNetNormRange = imageNetNormMax - imageNetNormMin
+imageNetNormMin = -imageNetNormMean / imageNetNormStd
+imageNetNormMax = (1.0 - imageNetNormMean) / imageNetNormStd
+imageNetNormRange = imageNetNormMax - imageNetNormMin
 
-imageNetNormMean = torch.tensor(imageNetNormMean, dtype=torch.float32).view(-1, 1, 1).to(device)
-imageNetNormStd = torch.tensor(imageNetNormStd, dtype=torch.float32).view(-1, 1, 1).to(device)
+imageNetNormMin = torch.tensor(imageNetNormMin, dtype=torch.float32).view(1, 3, 1, 1).to(device)
+imageNetNormRange = torch.tensor(imageNetNormRange, dtype=torch.float32).view(1, 3, 1, 1).to(device)
 
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
@@ -43,12 +43,8 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True,
 test_noise = torch.empty(64, LATENT_DIM).normal_(mean=0, std=1).to(device)
 
 print("Loading VGG")
-vgg_pretrained = Vgg19Full()
-vgg_pretrained.to(device)
-vgg_pretrained.eval()
-
-generator = DCGAN(LATENT_DIM)
-generator.to(device)
+vgg_pretrained = Vgg19Full().to(device).eval()
+generator = DCGAN(LATENT_DIM).to(device)
 
 # normalize tensors
 # count total features
@@ -137,7 +133,8 @@ for i in tqdm(range(NUM_ITERATIONS)):
 
     noise_batch = torch.empty(BATCH_SIZE, LATENT_DIM).normal_(mean=0, std=1).to(device)
     fake_imgs = generator(noise_batch)
-    fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
+    #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
+    fake_imgs = (((fake_imgs + 1) * imageNetNormRange) / 2) + imageNetNormMin
     fake_features = extract_features_from_batch(fake_imgs)
 
     fake_mean = torch.mean(fake_features, 0)
