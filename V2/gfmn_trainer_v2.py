@@ -55,14 +55,10 @@ for r in empty_res:
     total_features += r.shape[1]
 print('Performing feature mathcing for %d features' % total_features)
 # mean/var nets, losses, and optimizers
-mean_net = nn.Linear(total_features, 1, bias=False)
-mean_net.to(device)
+mean_net = nn.Linear(total_features, 1, bias=False).to(device)
+var_net = nn.Linear(total_features, 1, bias=False).to(device)
 
-var_net = nn.Linear(total_features, 1, bias=False)
-var_net.to(device)
-
-criterionLossL2 = nn.MSELoss()
-criterionLossL2.to(device)
+criterionLossL2 = nn.MSELoss().to(device)
 
 optimizerG = optim.Adam(generator.parameters(), LR_G, betas=(B1, 0.999))
 optimizerM = optim.Adam(mean_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
@@ -88,7 +84,7 @@ def extract_features_from_batch(batch):
     feats = []
     vgg_out = vgg_pretrained(batch)
     for j in range(batch.size(0)):
-        ft_sample = torch.cat([ft[j] for ft in vgg_out], dim=0)
+        ft_sample = torch.cat([ft[j, :] for ft in vgg_out], dim=0)
         feats.append(ft_sample.view(1, -1))
     return torch.cat(feats, dim=0)
 
@@ -125,6 +121,7 @@ avrg_g_var_net_loss = 0.0
 avrg_g_mean_net_loss = 0.0
 avrg_mean_net_loss = 0.0
 avrg_var_net_loss = 0.0
+avrg_g_total_loss = 0.0
 
 for i in tqdm(range(NUM_ITERATIONS)):
     generator.zero_grad()
@@ -165,12 +162,13 @@ for i in tqdm(range(NUM_ITERATIONS)):
 
     generator_loss = g_mean_net_loss + g_var_net_loss
     generator_loss.backward()
+    avrg_g_total_loss += generator_loss.item()
     optimizerG.step()
 
     # saving models/images
     if (i + 1) % SAMPLE_IMGS_ITERS == 0:
-        print('[%d/%d] Loss_Gz: %.6f Loss_GzVar: %.6f Loss_vMean: %.6f Loss_vVar: %.6f' %
-              (i + 1, NUM_ITERATIONS,
+        print('Loss_G_total: %.6f Loss_Gz: %.6f Loss_GzVar: %.6f Loss_vMean: %.6f Loss_vVar: %.6f' %
+              (avrg_g_total_loss / SAMPLE_IMGS_ITERS,
                avrg_g_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_g_var_net_loss / SAMPLE_IMGS_ITERS,
                avrg_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_var_net_loss / SAMPLE_IMGS_ITERS))
         os.sys.stdout.flush()
@@ -181,6 +179,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
         avrg_g_mean_net_loss = 0.0
         avrg_mean_net_loss = 0.0
         avrg_var_net_loss = 0.0
+        avrg_g_total_loss = 0.0
 
     if (i + 1) % SAVE_MODEL_ITERS == 0:
         save_models("")
