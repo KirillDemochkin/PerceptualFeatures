@@ -127,6 +127,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     generator.zero_grad()
     mean_net.zero_grad()
     var_net.zero_grad()
+    vgg_pretrained.zero_grad()
 
     noise_batch = torch.empty(BATCH_SIZE, LATENT_DIM).normal_(mean=0, std=1).to(device)
     fake_imgs = generator(noise_batch)
@@ -150,7 +151,6 @@ for i in tqdm(range(NUM_ITERATIONS)):
 
     mean_diff_real = mean_net(real_mean.view(1, -1)).detach()
     mean_diff_fake = mean_net(fake_mean.view(1, -1))
-
     var_diff_real = var_net(real_var.view(1, -1)).detach()
     var_diff_fake = var_net(fake_var.view(1, -1))
 
