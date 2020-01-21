@@ -6,7 +6,7 @@ from torchvision import models
 class Vgg16(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(Vgg16, self).__init__()
-        vgg_pretrained_features = models.vgg16(pretrained=True).features
+        vgg_pretrained_features = models.vgg19_bn(pretrained=True).features
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -37,11 +37,11 @@ class Vgg16(torch.nn.Module):
         return out
 
 
-class Vgg16Full(torch.nn.Module):
+class Vgg19Full(torch.nn.Module):
     def __init__(self, requires_grad=False):
-        super(Vgg16Full, self).__init__()
-        vgg_pretrained_features = models.vgg16(pretrained=True).features
-        #print(vgg_pretrained_features)
+        super(Vgg19Full, self).__init__()
+        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        print(vgg_pretrained_features)
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -55,6 +55,9 @@ class Vgg16Full(torch.nn.Module):
         self.slice11 = torch.nn.Sequential()
         self.slice12 = torch.nn.Sequential()
         self.slice13 = torch.nn.Sequential()
+        self.slice14 = torch.nn.Sequential()
+        self.slice15 = torch.nn.Sequential()
+        self.slice16 = torch.nn.Sequential()
         for x in range(2):
             self.slice1.add_module(str(x), vgg_pretrained_features[x])
         for x in range(2, 4):
@@ -81,6 +84,12 @@ class Vgg16Full(torch.nn.Module):
             self.slice12.add_module(str(x), vgg_pretrained_features[x])
         for x in range(28, 30):
             self.slice13.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(30, 32):
+            self.slice14.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(32, 34):
+            self.slice15.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(34, 36):
+            self.slice16.add_module(str(x), vgg_pretrained_features[x])
         if not requires_grad:
             for param in self.parameters():
                 param.requires_grad = False

@@ -9,7 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import os
 
-from models.vgg import Vgg16Full
+from models.vgg import Vgg19Full
 from models.generator_models import DCGAN
 
 
@@ -43,7 +43,7 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True,
 test_noise = torch.empty(64, LATENT_DIM).normal_(mean=0, std=1).to(device)
 
 print("Loading VGG")
-vgg_pretrained = Vgg16Full()
+vgg_pretrained = Vgg19Full()
 vgg_pretrained.to(device)
 vgg_pretrained.eval()
 
@@ -160,10 +160,10 @@ for i in tqdm(range(NUM_ITERATIONS)):
     var_diff_real = var_net(real_var.view(1, -1)).detach()
     var_diff_fake = var_net(fake_var.view(1, -1))
 
-    g_mean_net_loss = torch.abs(mean_diff_real - mean_diff_fake)
+    g_mean_net_loss = mean_diff_real - mean_diff_fake
     avrg_g_mean_net_loss += g_mean_net_loss.item()
 
-    g_var_net_loss = torch.abs(var_diff_real - var_diff_fake)
+    g_var_net_loss = var_diff_real - var_diff_fake
     avrg_g_var_net_loss += g_var_net_loss.item()
 
     generator_loss = g_mean_net_loss + g_var_net_loss
