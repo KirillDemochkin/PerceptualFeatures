@@ -60,7 +60,9 @@ var_net = nn.Linear(total_features, 1, bias=False).to(device)
 
 criterionLossL2 = nn.MSELoss().to(device)
 
-optimizerG = optim.Adam(generator.parameters(), LR_G, betas=(B1, 0.999))
+parametersG = set()
+parametersG |= set(generator.parameters())
+optimizerG = optim.Adam(parametersG, LR_G, betas=(B1, 0.999))
 optimizerM = optim.Adam(mean_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 
