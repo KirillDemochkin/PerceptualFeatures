@@ -6,7 +6,7 @@ class DCGAN(nn.Module):
         super(DCGAN, self).__init__()
         self.latent_size = latent_dim_size
         self.proj = nn.ConvTranspose2d(self.latent_size, 64*4, 4, 1, 0, bias=False)
-        self.proj_bn = nn.InstanceNorm2d(64*4)
+        self.proj_bn = nn.BatchNorm2d(64*4)
         self.proj_relu = nn.ReLU()
         self.proj.apply(weights_init)
         self.proj_bn.apply(weights_init)
@@ -37,7 +37,7 @@ class UpConBlock(nn.Module):
         super(UpConBlock, self).__init__()
         self.conv = nn.Conv2d(in_c, out_c, 3)
         self.pad = nn.ReflectionPad2d(1)
-        self.bn = nn.InstanceNorm2d(out_c)
+        self.bn = nn.BatchNorm2d(out_c)
         self.relu = nn.ReLU()
         self.up = nn.UpsamplingNearest2d(scale_factor=2)
 
@@ -50,7 +50,7 @@ class DeconBlock(nn.Module):
         super(DeconBlock, self).__init__()
         self.conv = nn.ConvTranspose2d(in_c, out_c, 4, 2, 1, bias=False)
         self.relu = nn.ReLU()
-        self.bn = nn.InstanceNorm2d(out_c)
+        self.bn = nn.BatchNorm2d(out_c)
 
     def forward(self, x):
         return self.relu(self.bn(self.conv(x)))
@@ -61,7 +61,7 @@ class ConBlock(nn.Module):
         super(ConBlock, self).__init__()
         #self.pad = nn.ReflectionPad2d(1)
         self.conv = nn.Conv2d(in_c, out_c, 3, 1, 1, bias=False)
-        self.bn = nn.InstanceNorm2d(out_c)
+        self.bn = nn.BatchNorm2d(out_c)
         self.relu = nn.ReLU()
 
     def forward(self, x):
