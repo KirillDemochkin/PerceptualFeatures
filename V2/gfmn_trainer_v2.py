@@ -54,7 +54,7 @@ with torch.no_grad():
     print([er.shape[1] for er in empty_res])
 for r in empty_res:
     total_features += r.shape[1]
-print('Performing feature mathcing for %d features' % total_features)
+print('Performing feature matching for %d features' % total_features)
 # mean/var nets, losses, and optimizers
 mean_net = nn.Linear(total_features, 1, bias=False).to(device)
 var_net = nn.Linear(total_features, 1, bias=False).to(device)
@@ -96,6 +96,7 @@ real_mean = torch.load('./data/mean.pt') if os.path.exists('./data/mean.pt') els
 real_sqr = None
 real_var = torch.load('./data/var.pt') if os.path.exists('./data/var.pt') else None
 num_processed = 0.0
+first_time = True
 if real_mean is None:
     with torch.no_grad():
         for i, data in tqdm(enumerate(trainloader, 1)):
@@ -103,12 +104,13 @@ if real_mean is None:
             img_batch = img_batch.to(device)
             extracted_batch = extract_features_from_batch(img_batch)
 
-            if real_mean is None:
+            if first_time:
                 real_mean = torch.sum(extracted_batch, dim=0)
                 real_sqr = torch.sum(extracted_batch ** 2, dim=0)
+                first_time = False
             else:
-                real_mean += torch.sum(extracted_batch, dim=0)
-                real_sqr += torch.sum(extracted_batch ** 2, dim=0)
+                real_mean = torch.add(real_mean, torch.sum(extracted_batch, dim=0))
+                real_sqr = torch.add(real_sqr, torch.sum(extracted_batch ** 2, dim=0))
 
             num_processed += img_batch.size(0)
 
