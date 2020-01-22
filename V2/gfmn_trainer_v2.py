@@ -79,7 +79,7 @@ def save_models(suffix=""):
 def sample_images():
     generator.eval()
     test_gen = generator(test_noise)
-    vutils.save_image(test_gen.data[:64], './generated_samples/generated_%d.png' % (i + 1), normalize=True)
+    vutils.save_image(test_gen.data[:64], './generated_samples/%d.png' % int((i + 1)/SAMPLE_IMGS_ITERS), normalize=True)
     generator.train()
 
 
