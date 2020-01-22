@@ -16,8 +16,8 @@ from models.generator_models import DCGAN
 BATCH_SIZE = 64
 LATENT_DIM = 100
 B1 = 0.8
-LR_G = 5e-5
-LR_MV_AVG = 1e-5
+LR_G = 5e-6
+LR_MV_AVG = 1e-6
 NUM_ITERATIONS = int(2e6)
 SAVE_MODEL_ITERS = 500
 SAMPLE_IMGS_ITERS = 500
