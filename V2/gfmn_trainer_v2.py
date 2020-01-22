@@ -95,7 +95,7 @@ def extract_features_from_batch(batch):
 real_mean = torch.load('./data/mean.pt') if os.path.exists('./data/mean.pt') else None
 real_sqr = None
 real_var = torch.load('./data/var.pt') if os.path.exists('./data/var.pt') else None
-num_processed = 0
+num_processed = 0.0
 if real_mean is None:
     with torch.no_grad():
         for i, data in tqdm(enumerate(trainloader, 1)):
@@ -114,6 +114,7 @@ if real_mean is None:
 
         real_var = (real_sqr - (real_mean ** 2) / num_processed) / (
                 num_processed - 1)
+        print('normalizing by %.2f' % num_processed)
         real_mean = real_mean / num_processed
 
         torch.save(real_mean, './data/mean.pt')
@@ -125,7 +126,7 @@ avrg_g_mean_net_loss = 0.0
 avrg_mean_net_loss = 0.0
 avrg_var_net_loss = 0.0
 avrg_g_total_loss = 0.0
-
+os.sys.stdout.flush()
 for i in tqdm(range(NUM_ITERATIONS)):
     generator.zero_grad()
     mean_net.zero_grad()
@@ -157,10 +158,10 @@ for i in tqdm(range(NUM_ITERATIONS)):
     var_diff_real = var_net(real_var.view(1, -1)).detach()
     var_diff_fake = var_net(fake_var.view(1, -1))
 
-    g_mean_net_loss = mean_diff_real - mean_diff_fake
+    g_mean_net_loss = (mean_diff_real - mean_diff_fake)
     avrg_g_mean_net_loss += g_mean_net_loss.item()
 
-    g_var_net_loss = var_diff_real - var_diff_fake
+    g_var_net_loss = (var_diff_real - var_diff_fake)
     avrg_g_var_net_loss += g_var_net_loss.item()
 
     generator_loss = g_mean_net_loss + g_var_net_loss
