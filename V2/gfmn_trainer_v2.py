@@ -4,6 +4,8 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.utils as vutils
+from torch.nn.utils import clip_grad_norm_
+
 from tqdm import tqdm
 
 import numpy as np
@@ -65,7 +67,7 @@ parametersG = set()
 parametersG |= set(generator.parameters())
 optimizerG = optim.Adam(parametersG, LR_G, betas=(B1, 0.999))
 optimizerM = optim.Adam(mean_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
-optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG*0.01, betas=(B1, 0.999))
+optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 
 
 # feature extraction
@@ -146,6 +148,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     mean_net_loss = criterionLossL2(mean_net.weight, real_fake_difference_mean.detach().view(1, -1))
     mean_net_loss.backward()
     avrg_mean_net_loss += mean_net_loss.item()
+    clip_grad_norm_(mean_net.parameters(), 2, norm_type=2)
     optimizerM.step()
 
     fake_var = torch.var(fake_features, 0)
@@ -153,6 +156,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     var_net_loss = criterionLossL2(var_net.weight, real_fake_difference_var.detach().view(1, -1))
     var_net_loss.backward()
     avrg_var_net_loss += var_net_loss.item()
+    clip_grad_norm_(var_net.parameters(), 2, norm_type=2)
     optimizerV.step()
 
     mean_diff_real = mean_net(real_mean.view(1, -1)).detach()
@@ -169,6 +173,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     generator_loss = g_mean_net_loss + g_var_net_loss
     generator_loss.backward()
     avrg_g_total_loss += generator_loss.item()
+    clip_grad_norm_(generator.parameters(), 2, norm_type=2)
     optimizerG.step()
 
     # saving models/images
