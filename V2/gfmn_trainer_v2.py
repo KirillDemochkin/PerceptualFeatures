@@ -15,7 +15,7 @@ from models.generator_models import DCGAN
 
 BATCH_SIZE = 64
 LATENT_DIM = 100
-B1 = 0.5
+B1 = 0.8
 LR_G = 5e-5
 LR_MV_AVG = 1e-5
 NUM_ITERATIONS = int(2e6)
@@ -65,7 +65,7 @@ parametersG = set()
 parametersG |= set(generator.parameters())
 optimizerG = optim.Adam(parametersG, LR_G, betas=(B1, 0.999))
 optimizerM = optim.Adam(mean_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
-optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerV = optim.Adam(var_net.parameters(), LR_MV_AVG*0.01, betas=(B1, 0.999))
 
 
 # feature extraction
