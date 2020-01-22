@@ -51,6 +51,7 @@ generator = DCGAN(LATENT_DIM).to(device)
 total_features = 0
 with torch.no_grad():
     empty_res = vgg_pretrained(torch.empty(4, 3, 32, 32).normal_(mean=0, std=1).to(device))
+    print([er.shape[1] for er in empty_res])
 for r in empty_res:
     total_features += r.shape[1]
 print('Performing feature mathcing for %d features' % total_features)

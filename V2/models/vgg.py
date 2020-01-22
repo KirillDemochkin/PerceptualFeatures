@@ -72,17 +72,17 @@ class Vgg19Full(torch.nn.Module):
             self.slice6.add_module(str(x), vgg_pretrained_features[x])
         for x in range(14, 16):
             self.slice7.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(16, 19):
+        for x in range(16, 18):
             self.slice8.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(19, 21):
+        for x in range(18, 21):
             self.slice9.add_module(str(x), vgg_pretrained_features[x])
         for x in range(21, 23):
             self.slice10.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(23, 26):
+        for x in range(23, 25):
             self.slice11.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(26, 28):
+        for x in range(25, 27):
             self.slice12.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(28, 30):
+        for x in range(27, 30):
             self.slice13.add_module(str(x), vgg_pretrained_features[x])
         for x in range(30, 32):
             self.slice14.add_module(str(x), vgg_pretrained_features[x])
@@ -99,13 +99,17 @@ class Vgg19Full(torch.nn.Module):
         h_relu2 = self.slice2(h_relu1)
         h_relu3 = self.slice3(h_relu2)
         h_relu4 = self.slice4(h_relu3)
-        h_relu5 = self.slice4(h_relu4)
-        h_relu6 = self.slice4(h_relu5)
-        h_relu7 = self.slice4(h_relu6)
-        h_relu8 = self.slice4(h_relu7)
-        h_relu9 = self.slice4(h_relu8)
-        h_relu10 = self.slice4(h_relu9)
-        h_relu11 = self.slice4(h_relu10)
-        h_relu12 = self.slice4(h_relu11)
-        res = (h_relu1, h_relu2, h_relu3, h_relu4, h_relu5, h_relu6, h_relu7, h_relu8, h_relu9, h_relu10, h_relu11, h_relu12)
+        h_relu5 = self.slice5(h_relu4)
+        h_relu6 = self.slice6(h_relu5)
+        h_relu7 = self.slice7(h_relu6)
+        h_relu8 = self.slice8(h_relu7)
+        h_relu9 = self.slice9(h_relu8)
+        h_relu10 = self.slice10(h_relu9)
+        h_relu11 = self.slice11(h_relu10)
+        h_relu12 = self.slice12(h_relu11)
+        h_relu13 = self.slice13(h_relu12)
+        h_relu14 = self.slice14(h_relu13)
+        h_relu15 = self.slice15(h_relu14)
+        h_relu16 = self.slice16(h_relu15)
+        res = (h_relu1, h_relu2, h_relu3, h_relu4, h_relu5, h_relu6, h_relu7, h_relu8, h_relu9, h_relu10, h_relu11, h_relu12, h_relu13, h_relu14, h_relu15, h_relu16)
         return [r.view(r.size(0), -1) for r in res]
