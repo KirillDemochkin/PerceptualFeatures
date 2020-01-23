@@ -98,7 +98,7 @@ class ResGenerator(nn.Module):
         self.net = nn.Sequential(nn_layers)
 
     def forward(self, x):
-        return self.net(x.view(-1, self.latent_size, 1, 1))
+        return self.net(x.view(-1, self.latent_dim_size, 1, 1))
 
 
 class ResBlock(nn.Module):
