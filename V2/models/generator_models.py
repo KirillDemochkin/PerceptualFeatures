@@ -73,6 +73,7 @@ class ResGenerator(nn.Module):
     def __init__(self, latent_dim_size):
         super(ResGenerator, self).__init__()
         num_layers = 4
+        self.latent_dim_size = latent_dim_size
         filter_size_per_layer = [64] * num_layers
         for i in range(num_layers -1, -1, -1):
             if i == num_layers -1:
