@@ -10,7 +10,7 @@ import numpy as np
 import os
 
 from models.vgg import Vgg19Full
-from models.generator_models import DCGAN
+from models.generator_models import DCGAN, ResGenerator
 
 
 BATCH_SIZE = 64
@@ -44,7 +44,8 @@ test_noise = torch.empty(64, LATENT_DIM).normal_(mean=0, std=1).to(device)
 
 print("Loading VGG")
 vgg_pretrained = Vgg19Full().to(device).eval()
-generator = DCGAN(LATENT_DIM).to(device)
+generator = ResGenerator(LATENT_DIM).to(device)
+#generator = DCGAN(LATENT_DIM).to(device)
 
 # normalize tensors
 # count total features

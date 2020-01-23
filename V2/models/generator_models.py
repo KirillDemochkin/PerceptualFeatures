@@ -1,5 +1,5 @@
 import torch.nn as nn
-
+from _collections import OrderedDict
 
 class DCGAN(nn.Module):
     def __init__(self, latent_dim_size):
@@ -72,17 +72,62 @@ class ConBlock(nn.Module):
 class ResGenerator(nn.Module):
     def __init__(self, latent_dim_size):
         super(ResGenerator, self).__init__()
+        num_layers = 4
+        filter_size_per_layer = [64] * num_layers
+        for i in range(num_layers -1, -1, -1):
+            if i == num_layers -1:
+                filter_size_per_layer[i] = 64
+            else:
+                filter_size_per_layer[i] = filter_size_per_layer[i+1]*2
+        first_l = nn.ConvTranspose2d(latent_dim_size, filter_size_per_layer[0], 4, 1, 0, bias=False)
+        nn.init.xavier_uniform_(first_l.weight.data, 1.)
+        last_l = nn.Conv2d(filter_size_per_layer[-1], 3, 3, stride=1, padding=1)
+        nn.init.xavier_uniform_(last_l.weight.data, 1.)
+
+        nn_layers = OrderedDict()
+        nn_layers["first_conv"] = first_l
+
+        layer_number = 1
+        for i in range(3):
+            nn_layers["resblock_%d" % i] = ResBlock(filter_size_per_layer[layer_number-1], filter_size_per_layer[layer_number], stride=2)
+            layer_number += 1
+        nn_layers["batch_norm"] = nn.BatchNorm2d(filter_size_per_layer[-1])
+        nn_layers["relu"] = nn.ReLU()
+        nn_layers["last_conv"] = last_l
+        nn_layers["tanh"] = nn.Tanh()
+        self.net = nn.Sequential(nn_layers)
 
     def forward(self, x):
-        pass
+        return self.net(x)
 
 
 class ResBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, in_c, out_c, stride=1):
         super(ResBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_c, out_c, 3, 1, padding=1)
+        self.conv2 = nn.Conv2d(out_c, out_c, 3, 1, padding=1)
+        self.conv_bypass = nn.Conv2d(in_c, out_c, 1, 1, padding=0)
 
-    def forwards(self):
-        pass
+        nn.init.xavier_uniform_(self.conv1.weight.data, 1.)
+        nn.init.xavier_uniform_(self.conv2.weight.data, 1.)
+        nn.init.xavier_uniform_(self.conv_bypass.weight.data, 1.)
+
+        self.model = nn.Sequential(
+            nn.BatchNorm2d(in_c),
+            nn.ReLU(),
+            nn.UpsamplingNearest2d(scale_factor=2),
+            self.conv1,
+            nn.BatchNorm2d(out_c),
+            nn.ReLU(),
+            self.conv2
+        )
+
+        self.bypass = nn.Sequential()
+        if stride != 1:
+            self.bypass = nn.Sequential(self.conv_bypass, nn.UpsamplingNearest2d(scale_factor=2))
+
+    def forward(self, x):
+        return self.model(x) + self.bypass(x)
 
 
 def weights_init(m):
