@@ -40,7 +40,7 @@ class Vgg16(torch.nn.Module):
 class Vgg19Full(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(Vgg19Full, self).__init__()
-        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        vgg_pretrained_features = models.vgg19_bn(pretrained=True).features
         print(vgg_pretrained_features)
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
@@ -58,37 +58,37 @@ class Vgg19Full(torch.nn.Module):
         self.slice14 = torch.nn.Sequential()
         self.slice15 = torch.nn.Sequential()
         self.slice16 = torch.nn.Sequential()
-        for x in range(2):
+        for x in range(3):
             self.slice1.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(2, 4):
+        for x in range(3, 6):
             self.slice2.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(4, 7):
+        for x in range(6, 10):
             self.slice3.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(7, 9):
+        for x in range(10, 13):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(9, 12):
+        for x in range(13, 17):
             self.slice5.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(12, 14):
+        for x in range(17, 20):
             self.slice6.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(14, 16):
+        for x in range(20, 23):
             self.slice7.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(16, 18):
+        for x in range(23, 26):
             self.slice8.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(18, 21):
+        for x in range(26, 30):
             self.slice9.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(21, 23):
+        for x in range(30, 33):
             self.slice10.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(23, 25):
+        for x in range(33, 36):
             self.slice11.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(25, 27):
+        for x in range(36, 39):
             self.slice12.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(27, 30):
+        for x in range(39, 43):
             self.slice13.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(30, 32):
+        for x in range(43, 46):
             self.slice14.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(32, 34):
+        for x in range(46, 49):
             self.slice15.add_module(str(x), vgg_pretrained_features[x])
-        for x in range(34, 36):
+        for x in range(49, 52):
             self.slice16.add_module(str(x), vgg_pretrained_features[x])
         if not requires_grad:
             for param in self.parameters():
