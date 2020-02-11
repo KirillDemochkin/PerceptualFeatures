@@ -4,6 +4,8 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.utils as vutils
+from torch.nn.utils import clip_grad_norm_
+
 from tqdm import tqdm
 
 import numpy as np
@@ -15,9 +17,9 @@ from models.generator_models import DCGAN, ResGenerator
 
 BATCH_SIZE = 64
 LATENT_DIM = 100
-B1 = 0.5
-LR_G = 5e-5
-LR_MV_AVG = 1e-5
+B1 = 0.8
+LR_G = 5e-6
+LR_MV_AVG = 1e-6
 NUM_ITERATIONS = int(2e6)
 SAVE_MODEL_ITERS = 500
 SAMPLE_IMGS_ITERS = 500
@@ -55,7 +57,7 @@ with torch.no_grad():
     print([er.shape[1] for er in empty_res])
 for r in empty_res:
     total_features += r.shape[1]
-print('Performing feature mathcing for %d features' % total_features)
+print('Performing feature matching for %d features' % total_features)
 # mean/var nets, losses, and optimizers
 mean_net = nn.Linear(total_features, 1, bias=False).to(device)
 var_net = nn.Linear(total_features, 1, bias=False).to(device)
@@ -97,6 +99,7 @@ real_mean = torch.load('./data/mean.pt') if os.path.exists('./data/mean.pt') els
 real_sqr = None
 real_var = torch.load('./data/var.pt') if os.path.exists('./data/var.pt') else None
 num_processed = 0.0
+first_time = True
 if real_mean is None:
     with torch.no_grad():
         for i, data in tqdm(enumerate(trainloader, 1)):
@@ -104,12 +107,13 @@ if real_mean is None:
             img_batch = img_batch.to(device)
             extracted_batch = extract_features_from_batch(img_batch)
 
-            if real_mean is None:
+            if first_time:
                 real_mean = torch.sum(extracted_batch, dim=0)
                 real_sqr = torch.sum(extracted_batch ** 2, dim=0)
+                first_time = False
             else:
-                real_mean += torch.sum(extracted_batch, dim=0)
-                real_sqr += torch.sum(extracted_batch ** 2, dim=0)
+                real_mean = torch.add(real_mean, torch.sum(extracted_batch, dim=0))
+                real_sqr = torch.add(real_sqr, torch.sum(extracted_batch ** 2, dim=0))
 
             num_processed += img_batch.size(0)
 
@@ -145,6 +149,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     mean_net_loss = criterionLossL2(mean_net.weight, real_fake_difference_mean.detach().view(1, -1))
     mean_net_loss.backward()
     avrg_mean_net_loss += mean_net_loss.item()
+    clip_grad_norm_(mean_net.parameters(), 2, norm_type=2)
     optimizerM.step()
 
     fake_var = torch.var(fake_features, 0)
@@ -152,6 +157,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     var_net_loss = criterionLossL2(var_net.weight, real_fake_difference_var.detach().view(1, -1))
     var_net_loss.backward()
     avrg_var_net_loss += var_net_loss.item()
+    clip_grad_norm_(var_net.parameters(), 2, norm_type=2)
     optimizerV.step()
 
     mean_diff_real = mean_net(real_mean.view(1, -1)).detach()
@@ -168,6 +174,7 @@ for i in tqdm(range(NUM_ITERATIONS)):
     generator_loss = g_mean_net_loss + g_var_net_loss
     generator_loss.backward()
     avrg_g_total_loss += generator_loss.item()
+    clip_grad_norm_(generator.parameters(), 2, norm_type=2)
     optimizerG.step()
 
     # saving models/images
