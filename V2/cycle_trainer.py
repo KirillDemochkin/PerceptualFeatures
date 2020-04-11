@@ -1,3 +1,5 @@
+import functools
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,16 +12,18 @@ import numpy as np
 import os
 
 from models.vgg import Vgg19Full
-from models.generator_models import Unet
+from models.cycle_gan_models import ResnetGenerator
+from models.generator_models import weights_init
 
 BATCH_SIZE = 64
 B1 = 0.5
 LR_G = 5e-5
 LR_MV_AVG = 1e-5
 NUM_ITERATIONS = int(2e6)
-IMG_SIZE = 128
+IMG_SIZE = 256
 SAVE_MODEL_ITERS = 500
 SAMPLE_IMGS_ITERS = 500
+CYCLE_LAMBDA = 10
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -38,24 +42,39 @@ transform = transforms.Compose([transforms.Resize(IMG_SIZE),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset_horses = datasets.ImageFolder(root='./data/horse2zebra/horses', transform=transform)
-trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=64, shuffle=True, num_workers=0)
+trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=32, shuffle=True, num_workers=0)
 
 trainset_zebras = datasets.ImageFolder(root='./data/horse2zebra/zebras', transform=transform)
-trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=64, shuffle=True, num_workers=0)
+trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=32, shuffle=True, num_workers=0)
 
 print("Loading VGG")
 vgg_pretrained = Vgg19Full().to(device).eval()
 
-generator_horses = Unet().to(device)
-generator_zebras = Unet().to(device)
+generator_horses = ResnetGenerator(input_nc=3,
+                                   output_nc=3,
+                                   ngf=64,
+                                   norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
+                                   use_dropout=False,
+                                   n_blocks=9,
+                                   padding_type='reflect').to(device)
+generator_zebras = ResnetGenerator(input_nc=3,
+                                   output_nc=3,
+                                   ngf=64,
+                                   norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
+                                   use_dropout=False,
+                                   n_blocks=9,
+                                   padding_type='reflect').to(device)
+
+generator_zebras.apply(weights_init)
+generator_horses.apply(weights_init)
 
 total_features = 0
 with torch.no_grad():
-    empty_res = vgg_pretrained(torch.empty(4, 3, 32, 32).normal_(mean=0, std=1).to(device))
+    empty_res = vgg_pretrained(torch.empty(4, 3, 256, 256).normal_(mean=0, std=1).to(device))
     print([er.shape[1] for er in empty_res])
 for r in empty_res:
     total_features += r.shape[1]
-print('Performing feature mathcing for %d features' % total_features)
+print('Performing feature matching for %d features' % total_features)
 # mean/var nets, losses, and optimizers
 mean_net_horses = nn.Linear(total_features, 1, bias=False).to(device)
 var_net_horses = nn.Linear(total_features, 1, bias=False).to(device)
@@ -64,6 +83,7 @@ mean_net_zebras = nn.Linear(total_features, 1, bias=False).to(device)
 var_net_zebras = nn.Linear(total_features, 1, bias=False).to(device)
 
 criterionLossL2 = nn.MSELoss().to(device)
+criterionCycleLoss = nn.L1Loss().to(device)
 
 parametersG_horses = set()
 parametersG_horses |= set(generator_horses.parameters())
@@ -87,11 +107,16 @@ def save_models(suffix=""):
     torch.save(var_net_zebras.state_dict(), './exported_models/netVar_zebras%s.pth' % suffix)
 
 
-def sample_images():
+def sample_images(batch_h, batch_z, num):
     generator_zebras.eval()
-
-    #vutils.save_image(test_gen.data[:64], './generated_samples/%d.png' % int((i + 1)/SAMPLE_IMGS_ITERS), normalize=True)
+    test_gen_z = generator_zebras(batch_h)
+    vutils.save_image(test_gen_z.data[:16], './generated_samples/zebras/%d.png' % num, normalize=True)
     generator_zebras.train()
+
+    generator_horses.eval()
+    test_gen_h = generator_horses(batch_z)
+    vutils.save_image(test_gen_h.data[:16], './generated_samples/horses/%d.png' % num, normalize=True)
+    generator_horses.train()
 
 
 def extract_features_from_batch(batch):
@@ -169,67 +194,145 @@ avrg_g_mean_net_zebras_loss = 0.0
 avrg_mean_net_zebras_loss = 0.0
 avrg_var_net_zebras_loss = 0.0
 
+avrg_total_g_loss_zebras = 0.0
+avrg_total_g_loss_horses = 0.0
 avrg_cycle_loss = 0.0
+avrg_combined_loss = 0.0
+
+save_num = 0
 os.sys.stdout.flush()
-for i in tqdm(range(NUM_ITERATIONS)):
-    generator_horses.zero_grad()
-    mean_net_horses.zero_grad()
-    var_net_horses.zero_grad()
-    generator_zebras.zero_grad()
-    mean_net_zebras.zero_grad()
-    var_net_zebras.zero_grad()
-    vgg_pretrained.zero_grad()
+for epoch in tqdm(range(NUM_ITERATIONS)):
+    for i, data in enumerate(zip(trainloader_horses, trainloader_zebras), 1):
+        generator_horses.zero_grad()
+        mean_net_horses.zero_grad()
+        var_net_horses.zero_grad()
+        generator_zebras.zero_grad()
+        mean_net_zebras.zero_grad()
+        var_net_zebras.zero_grad()
+        vgg_pretrained.zero_grad()
 
-    fake_imgs = generator(noise_batch)
-    #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
-    fake_imgs = (((fake_imgs + 1) * imageNetNormRange) / 2) + imageNetNormMin
-    fake_features = extract_features_from_batch(fake_imgs)
+        horse_batch = data[0][0]
+        zebra_batch = data[1][0]
 
-    fake_mean = torch.mean(fake_features, 0)
-    real_fake_difference_mean = real_mean.detach() - fake_mean.detach()
-    mean_net_loss = criterionLossL2(mean_net.weight, real_fake_difference_mean.detach().view(1, -1))
-    mean_net_loss.backward()
-    avrg_mean_net_loss += mean_net_loss.item()
-    optimizerM.step()
+        fake_zebras = generator_zebras(horse_batch)
+        #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
+        fake_zebras_unnormalized = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_zebras = extract_features_from_batch(fake_zebras_unnormalized)
 
-    fake_var = torch.var(fake_features, 0)
-    real_fake_difference_var = real_var.detach() - fake_var.detach()
-    var_net_loss = criterionLossL2(var_net.weight, real_fake_difference_var.detach().view(1, -1))
-    var_net_loss.backward()
-    avrg_var_net_loss += var_net_loss.item()
-    optimizerV.step()
+        recycled_horses = generator_horses(fake_zebras)
+        cycle_loss_horses = criterionCycleLoss(recycled_horses, horse_batch)
 
-    mean_diff_real = mean_net(real_mean.view(1, -1)).detach()
-    mean_diff_fake = mean_net(fake_mean.view(1, -1))
-    var_diff_real = var_net(real_var.view(1, -1)).detach()
-    var_diff_fake = var_net(fake_var.view(1, -1))
+        fake_horses = generator_zebras(zebra_batch)
+        # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
+        fake_horses_unnormalized = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_horses = extract_features_from_batch(fake_horses_unnormalized)
 
-    g_mean_net_loss = (mean_diff_real - mean_diff_fake)
-    avrg_g_mean_net_loss += g_mean_net_loss.item()
+        recycled_zebras = generator_zebras(fake_horses)
+        cycle_loss_zebras = criterionCycleLoss(recycled_zebras, zebra_batch)
 
-    g_var_net_loss = (var_diff_real - var_diff_fake)
-    avrg_g_var_net_loss += g_var_net_loss.item()
+        # Horses Update
+        fake_mean_horses = torch.mean(fake_features_horses, 0)
+        real_fake_difference_mean_horses = real_mean_horses.detach() - fake_mean_horses.detach()
+        mean_net_horses_loss = criterionLossL2(mean_net_horses.weight, real_fake_difference_mean_horses.detach().view(1, -1))
+        mean_net_horses_loss.backward()
+        avrg_mean_net_horses_loss += mean_net_horses_loss.item()
+        optimizerM_horses.step()
 
-    generator_loss = g_mean_net_loss + g_var_net_loss
-    generator_loss.backward()
-    avrg_g_total_loss += generator_loss.item()
-    optimizerG.step()
+        fake_var_horses = torch.var(fake_features_horses, 0)
+        real_fake_difference_var_horses = real_var_horses.detach() - fake_var_horses.detach()
+        var_net_horses_loss = criterionLossL2(var_net_horses.weight, real_fake_difference_var_horses.detach().view(1, -1))
+        var_net_horses_loss.backward()
+        avrg_var_net_horses_loss += var_net_horses_loss.item()
+        optimizerV_horses.step()
+
+        mean_diff_real_horses = mean_net_horses(real_mean_horses.view(1, -1)).detach()
+        mean_diff_fake_horses = mean_net_horses(fake_mean_horses.view(1, -1))
+        var_diff_real_horses = var_net_horses(real_var_horses.view(1, -1)).detach()
+        var_diff_fake_horses = var_net_horses(fake_var_horses.view(1, -1))
+
+        g_mean_net_horses_loss = (mean_diff_real_horses - mean_diff_fake_horses)
+        avrg_g_mean_net_horses_loss += g_mean_net_horses_loss.item()
+
+        g_var_net_horses_loss = (var_diff_real_horses - var_diff_fake_horses)
+        avrg_g_var_net_horses_loss += g_var_net_horses_loss.item()
+
+        generator_loss_horses = g_mean_net_horses_loss + g_var_net_horses_loss
+        avrg_total_g_loss_horses += generator_loss_horses.item()
+
+        #Zebras Update
+        fake_mean_zebras = torch.mean(fake_features_zebras, 0)
+        real_fake_difference_mean_zebras = real_mean_zebras.detach() - fake_mean_zebras.detach()
+        mean_net_zebras_loss = criterionLossL2(mean_net_zebras.weight,
+                                               real_fake_difference_mean_zebras.detach().view(1, -1))
+        mean_net_zebras_loss.backward()
+        avrg_mean_net_zebras_loss += mean_net_zebras_loss.item()
+        optimizerM_zebras.step()
+
+        fake_var_zebras = torch.var(fake_features_zebras, 0)
+        real_fake_difference_var_zebras = real_var_zebras.detach() - fake_var_zebras.detach()
+        var_net_zebras_loss = criterionLossL2(var_net_zebras.weight,
+                                              real_fake_difference_var_zebras.detach().view(1, -1))
+        var_net_zebras_loss.backward()
+        avrg_var_net_zebras_loss += var_net_zebras_loss.item()
+        optimizerV_zebras.step()
+
+        mean_diff_real_zebras = mean_net_zebras(real_mean_zebras.view(1, -1)).detach()
+        mean_diff_fake_zebras = mean_net_zebras(fake_mean_zebras.view(1, -1))
+        var_diff_real_zebras = var_net_zebras(real_var_zebras.view(1, -1)).detach()
+        var_diff_fake_zebras = var_net_zebras(fake_var_zebras.view(1, -1))
+
+        g_mean_net_zebras_loss = (mean_diff_real_zebras - mean_diff_fake_zebras)
+        avrg_g_mean_net_zebras_loss += g_mean_net_zebras_loss.item()
+
+        g_var_net_zebras_loss = (var_diff_real_zebras - var_diff_fake_zebras)
+        avrg_g_var_net_zebras_loss += g_var_net_zebras_loss.item()
+
+        generator_loss_zebras = g_mean_net_zebras_loss + g_var_net_zebras_loss
+        avrg_total_g_loss_zebras += generator_loss_zebras.item()
+
+        #Optimization
+        total_cycle_loss = CYCLE_LAMBDA * (cycle_loss_horses + cycle_loss_zebras)
+        avrg_cycle_loss += total_cycle_loss.item()
+        combined_loss = generator_loss_horses + generator_loss_zebras + total_cycle_loss
+        combined_loss.backward()
+        avrg_combined_loss += combined_loss.item()
+
+
+        optimizerG_horses.step()
+        optimizerG_zebras.step()
+
+        if i % 20 == 0:
+            with torch.no_grad():
+                sample_images(horse_batch, zebra_batch, save_num)
+            save_num += 1
 
     # saving models/images
-    if (i + 1) % SAMPLE_IMGS_ITERS == 0:
-        print('Loss_G_total: %.6f Loss_Gz: %.6f Loss_GzVar: %.6f Loss_vMean: %.6f Loss_vVar: %.6f' %
-              (avrg_g_total_loss / SAMPLE_IMGS_ITERS,
-               avrg_g_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_g_var_net_loss / SAMPLE_IMGS_ITERS,
-               avrg_mean_net_loss / SAMPLE_IMGS_ITERS, avrg_var_net_loss / SAMPLE_IMGS_ITERS))
-        os.sys.stdout.flush()
-        with torch.no_grad():
-            sample_images()
+    #len is from horses dataset, since it is smaller
+    print('Zebras: Loss_G_total: %.6f Loss_Gz: %.6f Loss_GzVar: %.6f Loss_vMean: %.6f Loss_vVar: %.6f\n'
+          'Horses: Loss_G_total: %.6f Loss_Gz: %.6f Loss_GzVar: %.6f Loss_vMean: %.6f Loss_vVar: %.6f\n'
+          'Combined losses: Cycle_loss: %.6f, Total_loss: %.6f' %
+          (avrg_total_g_loss_zebras / len(trainset_horses),
+           avrg_g_mean_net_zebras_loss / len(trainset_horses), avrg_g_var_net_zebras_loss / len(trainset_horses),
+           avrg_mean_net_zebras_loss / len(trainset_horses), avrg_var_net_zebras_loss / len(trainset_horses),
+           avrg_total_g_loss_horses / len(trainset_horses),
+           avrg_g_mean_net_horses_loss / len(trainset_horses), avrg_g_var_net_horses_loss / len(trainset_horses),
+           avrg_mean_net_horses_loss / len(trainset_horses), avrg_var_net_horses_loss / len(trainset_horses),
+           avrg_cycle_loss/len(trainset_horses), avrg_combined_loss/len(trainset_horses)
+           ))
+    os.sys.stdout.flush()
 
-        avrg_g_var_net_loss = 0.0
-        avrg_g_mean_net_loss = 0.0
-        avrg_mean_net_loss = 0.0
-        avrg_var_net_loss = 0.0
-        avrg_g_total_loss = 0.0
+    avrg_g_var_net_horses_loss = 0.0
+    avrg_g_mean_net_horses_loss = 0.0
+    avrg_mean_net_horses_loss = 0.0
+    avrg_var_net_horses_loss = 0.0
 
-    if (i + 1) % SAVE_MODEL_ITERS == 0:
-        save_models("")
+    avrg_g_var_net_zebras_loss = 0.0
+    avrg_g_mean_net_zebras_loss = 0.0
+    avrg_mean_net_zebras_loss = 0.0
+    avrg_var_net_zebras_loss = 0.0
+
+    avrg_total_g_loss_zebras = 0.0
+    avrg_total_g_loss_horses = 0.0
+    avrg_cycle_loss = 0.0
+    avrg_combined_loss = 0.0
+    save_models("")
