@@ -42,10 +42,10 @@ transform = transforms.Compose([transforms.Resize(IMG_SIZE),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset_horses = datasets.ImageFolder(root='./data/horse2zebra/horses', transform=transform)
-trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=32, shuffle=True, num_workers=0)
+trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=64, shuffle=True, num_workers=0)
 
 trainset_zebras = datasets.ImageFolder(root='./data/horse2zebra/zebras', transform=transform)
-trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=32, shuffle=True, num_workers=0)
+trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=64, shuffle=True, num_workers=0)
 
 print("Loading VGG")
 vgg_pretrained = Vgg19Full().to(device).eval()
@@ -128,8 +128,10 @@ def extract_features_from_batch(batch):
     return torch.cat(feats, dim=0)
 
 real_mean_horses = torch.load('./data/mean_horses.pt') if os.path.exists('./data/mean_horses.pt') else None
+#real_mean_horses = torch.zeros(total_features) ## Remove for real code
 real_sqr_horses = None
 real_var_horses = torch.load('./data/var_horses.pt') if os.path.exists('./data/var_horses.pt') else None
+#real_var_horses = torch.zeros(total_features) ## Remove for real code
 num_processed = 0.0
 if real_mean_horses is None:
     with torch.no_grad():
@@ -156,8 +158,10 @@ if real_mean_horses is None:
         torch.save(real_var_horses, './data/var_horses.pt')
 
 real_mean_zebras = torch.load('./data/mean_zebras.pt') if os.path.exists('./data/mean_zebras.pt') else None
+#real_mean_zebras = torch.zeros(total_features)
 real_sqr_zebras = None
 real_var_zebras = torch.load('./data/var_zebras.pt') if os.path.exists('./data/var_zebras.pt') else None
+#real_var_zebras = torch.zeros(total_features)
 num_processed = 0.0
 if real_mean_zebras is None:
     with torch.no_grad():
@@ -216,16 +220,16 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         fake_zebras = generator_zebras(horse_batch)
         #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
-        fake_zebras_unnormalized = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
-        fake_features_zebras = extract_features_from_batch(fake_zebras_unnormalized)
+        fake_zebras = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_zebras = extract_features_from_batch(fake_zebras)
 
         recycled_horses = generator_horses(fake_zebras)
         cycle_loss_horses = criterionCycleLoss(recycled_horses, horse_batch)
 
         fake_horses = generator_zebras(zebra_batch)
         # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
-        fake_horses_unnormalized = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
-        fake_features_horses = extract_features_from_batch(fake_horses_unnormalized)
+        fake_horses = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_horses = extract_features_from_batch(fake_horses)
 
         recycled_zebras = generator_zebras(fake_horses)
         cycle_loss_zebras = criterionCycleLoss(recycled_zebras, zebra_batch)
