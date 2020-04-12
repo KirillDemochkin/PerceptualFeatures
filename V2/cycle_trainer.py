@@ -52,14 +52,14 @@ vgg_pretrained = Vgg19Full().to(device).eval()
 
 generator_horses = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=64,
+                                   ngf=32,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=6,
                                    padding_type='reflect').to(device)
 generator_zebras = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=64,
+                                   ngf=32,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=6,
