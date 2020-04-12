@@ -70,7 +70,7 @@ generator_horses.apply(weights_init)
 
 total_features = 0
 with torch.no_grad():
-    empty_res = vgg_pretrained(torch.empty(4, 3, 256, 256).normal_(mean=0, std=1).to(device))
+    empty_res = vgg_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
     print([er.shape[1] for er in empty_res])
 for r in empty_res:
     total_features += r.shape[1]
