@@ -52,14 +52,14 @@ vgg_pretrained = Vgg19Full().to(device).eval()
 
 generator_horses = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=64,
+                                   ngf=32,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=9,
                                    padding_type='reflect').to(device)
 generator_zebras = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=64,
+                                   ngf=32,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=9,
@@ -204,6 +204,7 @@ avrg_cycle_loss = 0.0
 avrg_combined_loss = 0.0
 
 save_num = 0
+print('~~~~~~~~~~~~Starting Training~~~~~~~~~~~~~~~~')
 os.sys.stdout.flush()
 for epoch in tqdm(range(NUM_ITERATIONS)):
     for i, data in tqdm(enumerate(zip(trainloader_horses, trainloader_zebras), 1)):
