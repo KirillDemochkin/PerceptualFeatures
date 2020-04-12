@@ -215,8 +215,8 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         var_net_zebras.zero_grad()
         vgg_pretrained.zero_grad()
 
-        horse_batch = data[0][0]
-        zebra_batch = data[1][0]
+        horse_batch = data[0][0].to(device)
+        zebra_batch = data[1][0].to(device)
 
         fake_zebras = generator_zebras(horse_batch)
         #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
