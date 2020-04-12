@@ -206,7 +206,7 @@ avrg_combined_loss = 0.0
 save_num = 0
 os.sys.stdout.flush()
 for epoch in tqdm(range(NUM_ITERATIONS)):
-    for i, data in enumerate(zip(trainloader_horses, trainloader_zebras), 1):
+    for i, data in tqdm(enumerate(zip(trainloader_horses, trainloader_zebras), 1)):
         generator_horses.zero_grad()
         mean_net_horses.zero_grad()
         var_net_horses.zero_grad()
