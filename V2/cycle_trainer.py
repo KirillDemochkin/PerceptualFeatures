@@ -42,24 +42,24 @@ transform = transforms.Compose([transforms.Resize(IMG_SIZE),
                                 transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
 
 trainset_horses = datasets.ImageFolder(root='./data/horse2zebra/horses', transform=transform)
-trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=32, shuffle=True, num_workers=0)
+trainloader_horses = torch.utils.data.DataLoader(trainset_horses, batch_size=16, shuffle=True, num_workers=0)
 
 trainset_zebras = datasets.ImageFolder(root='./data/horse2zebra/zebras', transform=transform)
-trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=32, shuffle=True, num_workers=0)
+trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=16, shuffle=True, num_workers=0)
 
 print("Loading VGG")
 vgg_pretrained = Vgg19Full().to(device).eval()
 
 generator_horses = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=32,
+                                   ngf=64,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=6,
                                    padding_type='reflect').to(device)
 generator_zebras = ResnetGenerator(input_nc=3,
                                    output_nc=3,
-                                   ngf=32,
+                                   ngf=64,
                                    norm_layer=functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False),
                                    use_dropout=False,
                                    n_blocks=6,
