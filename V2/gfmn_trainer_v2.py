@@ -9,8 +9,8 @@ from tqdm import tqdm
 import numpy as np
 import os
 
-from models.vgg import Vgg19Full
-from models.generator_models import DCGAN, ResGenerator
+from .models.vgg import Vgg19Full
+from .models.generator_models import DCGAN, ResGenerator
 
 
 BATCH_SIZE = 64

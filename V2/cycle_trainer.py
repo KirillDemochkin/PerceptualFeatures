@@ -11,9 +11,9 @@ from tqdm import tqdm
 import numpy as np
 import os
 
-from models.vgg import Vgg19Full
-from models.cycle_gan_models import ResnetGenerator
-from models.generator_models import weights_init
+from .models.vgg import Vgg19Full
+from .models.cycle_gan_models import ResnetGenerator
+from .models.generator_models import weights_init
 
 BATCH_SIZE = 64
 B1 = 0.5
@@ -227,7 +227,7 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         recycled_horses = generator_horses(fake_zebras)
         cycle_loss_horses = criterionCycleLoss(recycled_horses, horse_batch)
 
-        fake_horses = generator_zebras(zebra_batch)
+        fake_horses = generator_horses(zebra_batch)
         # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
         fake_horses = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
         fake_features_horses = extract_features_from_batch(fake_horses)
@@ -301,7 +301,6 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         combined_loss = generator_loss_horses + generator_loss_zebras + total_cycle_loss
         combined_loss.backward()
         avrg_combined_loss += combined_loss.item()
-
 
         optimizerG_horses.step()
         optimizerG_zebras.step()
