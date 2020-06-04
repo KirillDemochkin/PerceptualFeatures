@@ -11,9 +11,9 @@ from tqdm import tqdm
 import numpy as np
 import os
 
-from .models.vgg import Vgg19Full
-from .models.cycle_gan_models import ResnetGenerator
-from .models.generator_models import weights_init
+from models.vgg import Vgg19Full
+from models.cycle_gan_models import ResnetGenerator
+from models.generator_models import weights_init
 
 BATCH_SIZE = 64
 B1 = 0.5
