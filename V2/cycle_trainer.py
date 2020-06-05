@@ -332,10 +332,11 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         # Horses Update
         fake_mean_horses = torch.mean(fake_features_horses, 0)
-        print(fake_mean_horses.shape)
-        print(torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True).shape)
-        real_mean_horses_discr = torch.cat((real_mean_horses, torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True)),
-                                           dim=1)
+        #print(fake_mean_horses.shape)
+        #print(torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True).shape)
+        real_mean_horses_discr = torch.cat((real_mean_horses,
+                                            torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0)),
+                                            dim=0)
         real_fake_difference_mean_horses = real_mean_horses_discr.detach() - fake_mean_horses.detach()
         mean_net_horses_loss = criterionLossL2(mean_net_horses.weight,
                                                real_fake_difference_mean_horses.detach().view(1, -1))
@@ -344,8 +345,9 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         optimizerM_horses.step()
 
         fake_var_horses = torch.var(fake_features_horses, 0, keepdim=True)
-        real_var_horses_discr = torch.cat((real_var_horses, torch.var(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True)),
-                                          dim=1)
+        real_var_horses_discr = torch.cat((real_var_horses,
+                                           torch.var(torch.cat(real_horses_disc_feats, dim=1), dim=0)),
+                                           dim=0)
         real_fake_difference_var_horses = real_var_horses_discr.detach() - fake_var_horses.detach()
         var_net_horses_loss = criterionLossL2(var_net_horses.weight,
                                               real_fake_difference_var_horses.detach().view(1, -1))
@@ -369,8 +371,9 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         # Zebras Update
         fake_mean_zebras = torch.mean(fake_features_zebras, 0)
-        real_mean_zebras_discr = torch.cat((real_mean_zebras, torch.mean(torch.cat(real_zebras_disc_feats, dim=1), 0)),
-                                           dim=1)
+        real_mean_zebras_discr = torch.cat((real_mean_zebras,
+                                            torch.mean(torch.cat(real_zebras_disc_feats, dim=1), 0)),
+                                            dim=0)
         real_fake_difference_mean_zebras = real_mean_zebras_discr.detach() - fake_mean_zebras.detach()
         mean_net_zebras_loss = criterionLossL2(mean_net_zebras.weight,
                                                real_fake_difference_mean_zebras.detach().view(1, -1))
@@ -379,8 +382,9 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         optimizerM_zebras.step()
 
         fake_var_zebras = torch.var(fake_features_zebras, 0)
-        real_var_zebras_discr = torch.cat((real_var_zebras, torch.var(torch.cat(real_zebras_disc_feats, dim=1), 0)),
-                                          dim=1)
+        real_var_zebras_discr = torch.cat((real_var_zebras,
+                                           torch.var(torch.cat(real_zebras_disc_feats, dim=1), 0)),
+                                           dim=0)
         real_fake_difference_var_zebras = real_var_zebras_discr.detach() - fake_var_zebras.detach()
         var_net_zebras_loss = criterionLossL2(var_net_zebras.weight,
                                               real_fake_difference_var_zebras.detach().view(1, -1))
