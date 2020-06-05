@@ -274,6 +274,11 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         horse_batch = data[0][0].to(device)
         zebra_batch = data[1][0].to(device)
+        if horse_batch.shape[0] > zebra_batch.shape[0]:
+            horse_batch = horse_batch[:zebra_batch.shape[0], :, :, :]
+        elif zebra_batch.shape[0] > horse_batch.shape[0]:
+            zebra_batch = zebra_batch[:horse_batch.shape[0], :, :, :]
+
         jitter_real_h = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
         jitter_real_z = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
