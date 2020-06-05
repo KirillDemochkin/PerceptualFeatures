@@ -34,8 +34,8 @@ class ResnetGenerator(nn.Module):
         n_downsampling = 2
         for i in range(n_downsampling):  # add downsampling layers
             mult = 2 ** i
-            model += [nn.spectral_norm(nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias),
-                      norm_layer(ngf * mult * 2), eps=1e-8),
+            model += [nn.utils.spectral_norm(nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias), eps=1e-8),
+                      norm_layer(ngf * mult * 2),
                       nn.LeakyReLU(0.2, True)]
 
         mult = 2 ** n_downsampling
