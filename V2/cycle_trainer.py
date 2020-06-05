@@ -12,6 +12,7 @@ import numpy as np
 import os
 
 from models.vgg import Vgg19Full
+from models.resnet import Resnet18Full
 from models.cycle_gan_models import ResnetGenerator
 from models.generator_models import weights_init
 
@@ -49,6 +50,7 @@ trainloader_zebras = torch.utils.data.DataLoader(trainset_zebras, batch_size=16,
 
 print("Loading VGG")
 vgg_pretrained = Vgg19Full().to(device).eval()
+resnet_pretrained = Resnet18Full().to(device).eval()
 
 generator_horses = ResnetGenerator(input_nc=3,
                                    output_nc=3,
@@ -70,9 +72,13 @@ generator_horses.apply(weights_init)
 
 total_features = 0
 with torch.no_grad():
-    empty_res = vgg_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
-    print([er.shape[1] for er in empty_res])
-for r in empty_res:
+    empty_res_vgg = vgg_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
+    empty_res_resnet = resnet_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
+    print([er.shape[1] for er in empty_res_vgg])
+    print([er.shape[1] for er in empty_res_resnet])
+for r in empty_res_vgg:
+    total_features += r.shape[1]
+for r in empty_res_resnet:
     total_features += r.shape[1]
 print('Performing feature matching for %d features' % total_features)
 # mean/var nets, losses, and optimizers
@@ -122,9 +128,12 @@ def sample_images(batch_h, batch_z, num):
 def extract_features_from_batch(batch):
     feats = []
     vgg_out = vgg_pretrained(batch)
+    resnet_out = resnet_pretrained(batch)
     for j in range(batch.size(0)):
-        ft_sample = torch.cat([ft[j, :] for ft in vgg_out], dim=0)
-        feats.append(ft_sample.view(1, -1))
+        ft_sample_vgg = torch.cat([ft[j, :] for ft in vgg_out], dim=0).view(1, -1)
+        ft_sample_resnet = torch.cat([ft[j, :] for ft in resnet_out], dim=0).view(1, -1)
+        ft_sample = torch.cat((ft_sample_vgg, ft_sample_resnet), dim=1)
+        feats.append(ft_sample)
     return torch.cat(feats, dim=0)
 
 real_mean_horses = torch.load('./data/mean_horses.pt') if os.path.exists('./data/mean_horses.pt') else None
@@ -305,7 +314,7 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         optimizerG_horses.step()
         optimizerG_zebras.step()
 
-        if i % 20 == 0:
+        if i % 50 == 49:
             with torch.no_grad():
                 sample_images(horse_batch, zebra_batch, save_num)
             save_num += 1
