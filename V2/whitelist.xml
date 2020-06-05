@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ProvisioningRequest 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="ProvisioningRequest.xsd" System="Harman">
+    <Header TransactionId="Harman_Device_360320200003" ProvisioningCarrier="ATT" RoutingCarrier="TLG" TimeStamp="03/26/2020 11:42:47-07:00">
+        <Sender Login="harmanDev" Password="h@rmanDev" />
+        <Notification URL="https://mim-dev.att.com/tpp/absresponse" />
+    </Header>
+    <Order>
+        <Account MSISDN="12158823213" SubscriberNumber="S_9003500001" AccountTypeIndicator="I" />
+        <BillingAccount>
+            <FAN currentFAN="7777700001" />
+        </BillingAccount>
+        <Equipment>
+            <Device IMEI="356233110000038" />
+            <SIM IMSI="420072821393513" ICCID="89011004300021914503" />
+        </Equipment>
+        <SubscriberStatusDetail>
+            <subscriberStatus>S</subscriberStatus>
+            <statusReasonCode>CA1Y</statusReasonCode>
+        </SubscriberStatusDetail>
+        <Products>
+            <Product Category="ABS" Id="8237" Action="Cancel">
+                <Attribute Name="RTP" Value="Y" />
+                <Attribute Name="SOC_SEQ_NO" Value="1696448427" />
+                <Attribute Name="DEALER_CODE" Value="A0000" />
+                <Attribute Name="3PP" Value="Y" />
+            </Product>
+            <Product Category="ABS" Id="9246" Action="Cancel">
+                <Attribute Name="RTP" Value="Y" />
+                <Attribute Name="SOC_SEQ_NO" Value="1696448425" />
+                <Attribute Name="DEALER_CODE" Value="A0000" />
+                <Attribute Name="3PP" Value="Y" />
+            </Product>
+            <Product Category="ABS" Id="9243" Action="C">
+                <Attribute Name="RTP" Value="Y" />
+                <Attribute Name="SOC_SEQ_NO" Value="1696448426" />
+                <Attribute Name="DEALER_CODE" Value="A0000" />
+                <Attribute Name="3PP" Value="Y" />
+            </Product>
+        </Products>
+    </Order>
+</ProvisioningRequest>
