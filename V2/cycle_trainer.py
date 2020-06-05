@@ -332,6 +332,8 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         # Horses Update
         fake_mean_horses = torch.mean(fake_features_horses, 0)
+        print(fake_mean_horses.shape)
+        print(torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True).shape)
         real_mean_horses_discr = torch.cat((real_mean_horses, torch.mean(torch.cat(real_horses_disc_feats, dim=1), dim=0, keepdim=True)),
                                            dim=1)
         real_fake_difference_mean_horses = real_mean_horses_discr.detach() - fake_mean_horses.detach()
