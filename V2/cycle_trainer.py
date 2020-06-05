@@ -18,7 +18,7 @@ from models.generator_models import weights_init
 
 BATCH_SIZE = 64
 B1 = 0.5
-LR_G = 1e-5
+LR_G = 5e-5
 LR_MV_AVG = 1e-5
 NUM_ITERATIONS = int(2e6)
 IMG_SIZE = 128
