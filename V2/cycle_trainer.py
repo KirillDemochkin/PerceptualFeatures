@@ -276,9 +276,9 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         zebra_batch = data[1][0].to(device)
         jitter_real_h = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
-        jitter_real_z = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+        jitter_real_z = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
-        jitter_fake_h = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+        jitter_fake_h = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
         jitter_fake_z = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
