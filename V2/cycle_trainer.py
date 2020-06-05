@@ -66,8 +66,8 @@ generator_zebras = ResnetGenerator(input_nc=3,
                                    use_dropout=False,
                                    n_blocks=6,
                                    padding_type='reflect').to(device)
-discriminator_horses = MultiscaleDiscriminator()
-discriminator_zebras = MultiscaleDiscriminator()
+discriminator_horses = MultiscaleDiscriminator().to(device)
+discriminator_zebras = MultiscaleDiscriminator().to(device)
 
 generator_zebras.apply(weights_init)
 generator_horses.apply(weights_init)
