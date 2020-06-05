@@ -4,6 +4,15 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
 class Resnet18Full(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(Resnet18Full, self).__init__()
@@ -19,6 +28,8 @@ class Resnet18Full(torch.nn.Module):
         self.resnet_pretrained_features.layer3[1].relu.register_forward_hook(partial(self.save_activation))
         self.resnet_pretrained_features.layer4[0].relu.register_forward_hook(partial(self.save_activation))
         self.resnet_pretrained_features.layer4[1].relu.register_forward_hook(partial(self.save_activation))
+        self.resnet_pretrained_features.avgpool = Identity()
+        self.resnet_pretrained_features.fc = Identity()
         if not requires_grad:
             for param in self.parameters():
                 param.requires_grad = False
