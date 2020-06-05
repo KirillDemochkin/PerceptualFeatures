@@ -13,7 +13,7 @@ import os
 
 from models.vgg import Vgg19Full
 from models.resnet import Resnet18Full
-from models.cycle_gan_models import ResnetGenerator
+from models.cycle_gan_models import ResnetGenerator, MultiscaleDiscriminator
 from models.generator_models import weights_init
 
 BATCH_SIZE = 64
@@ -66,20 +66,31 @@ generator_zebras = ResnetGenerator(input_nc=3,
                                    use_dropout=False,
                                    n_blocks=6,
                                    padding_type='reflect').to(device)
+discriminator_horses = MultiscaleDiscriminator()
+discriminator_zebras = MultiscaleDiscriminator()
 
 generator_zebras.apply(weights_init)
 generator_horses.apply(weights_init)
 
+discriminator_horses.apply(weights_init)
+discriminator_zebras.apply(weights_init)
+
 total_features = 0
+disc_features = 0
 with torch.no_grad():
     empty_res_vgg = vgg_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
     empty_res_resnet = resnet_pretrained(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
+    _, empty_res_disc = discriminator_horses(torch.empty(4, 3, IMG_SIZE, IMG_SIZE).normal_(mean=0, std=1).to(device))
     print([er.shape[1] for er in empty_res_vgg])
     print([er.shape[1] for er in empty_res_resnet])
+    print([er.shape[1] for er in empty_res_disc])
 for r in empty_res_vgg:
     total_features += r.shape[1]
 for r in empty_res_resnet:
     total_features += r.shape[1]
+for r in empty_res_disc:
+    total_features += r.shape[1]
+    disc_features += r.shape[1]
 print('Performing feature matching for %d features' % total_features)
 # mean/var nets, losses, and optimizers
 mean_net_horses = nn.Linear(total_features, 1, bias=False).to(device)
@@ -87,6 +98,12 @@ var_net_horses = nn.Linear(total_features, 1, bias=False).to(device)
 
 mean_net_zebras = nn.Linear(total_features, 1, bias=False).to(device)
 var_net_zebras = nn.Linear(total_features, 1, bias=False).to(device)
+
+mean_net_horses_disc = nn.Linear(disc_features, 1, bias=False).to(device)
+var_net_horses_disc = nn.Linear(disc_features, 1, bias=False).to(device)
+
+mean_net_zebras_disc = nn.Linear(disc_features, 1, bias=False).to(device)
+var_net_zebras_disc = nn.Linear(disc_features, 1, bias=False).to(device)
 
 criterionLossL2 = nn.MSELoss().to(device)
 criterionCycleLoss = nn.L1Loss().to(device)
@@ -96,21 +113,31 @@ parametersG_horses |= set(generator_horses.parameters())
 optimizerG_horses = optim.Adam(parametersG_horses, LR_G, betas=(B1, 0.999))
 optimizerM_horses = optim.Adam(mean_net_horses.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 optimizerV_horses = optim.Adam(var_net_horses.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerMD_horses = optim.Adam(mean_net_horses_disc.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerVD_horses = optim.Adam(var_net_horses_disc.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerD_horses = optim.Adam(discriminator_horses.parameters(), LR_G, betas=(B1, 0.999))
 
 parametersG_zebras = set()
 parametersG_zebras |= set(generator_zebras.parameters())
 optimizerG_zebras = optim.Adam(parametersG_zebras, LR_G, betas=(B1, 0.999))
 optimizerM_zebras = optim.Adam(mean_net_zebras.parameters(), LR_MV_AVG, betas=(B1, 0.999))
 optimizerV_zebras = optim.Adam(var_net_zebras.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerMD_zebras = optim.Adam(mean_net_zebras_disc.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerVD_zebras = optim.Adam(var_net_zebras_disc.parameters(), LR_MV_AVG, betas=(B1, 0.999))
+optimizerD_zebras = optim.Adam(discriminator_zebras.parameters(), LR_G, betas=(B1, 0.999))
 
 def save_models(suffix=""):
     # saving current best model
     torch.save(generator_horses.state_dict(), './exported_models/generator_horses%s.pth' % suffix)
     torch.save(mean_net_horses.state_dict(), './exported_models/netMean_horses%s.pth' % suffix)
     torch.save(var_net_horses.state_dict(), './exported_models/netVar_horses%s.pth' % suffix)
+    torch.save(mean_net_horses_disc.state_dict(), './exported_models/netMean_horses_disc%s.pth' % suffix)
+    torch.save(var_net_horses_disc.state_dict(), './exported_models/netVar_horses_disc%s.pth' % suffix)
     torch.save(generator_zebras.state_dict(), './exported_models/generator_zebras%s.pth' % suffix)
     torch.save(mean_net_zebras.state_dict(), './exported_models/netMean_zebras%s.pth' % suffix)
     torch.save(var_net_zebras.state_dict(), './exported_models/netVar_zebras%s.pth' % suffix)
+    torch.save(mean_net_zebras_disc.state_dict(), './exported_models/netMean_zebra_disc%s.pth' % suffix)
+    torch.save(var_net_zebras_disc.state_dict(), './exported_models/netVar_zebras_disc%s.pth' % suffix)
 
 
 def sample_images(batch_h, batch_z, num):
@@ -125,14 +152,15 @@ def sample_images(batch_h, batch_z, num):
     generator_horses.train()
 
 
-def extract_features_from_batch(batch):
+def extract_features_from_batch(batch, disc_feats):
     feats = []
     vgg_out = vgg_pretrained(batch)
     resnet_out = resnet_pretrained(batch)
     for j in range(batch.size(0)):
         ft_sample_vgg = torch.cat([ft[j, :] for ft in vgg_out], dim=0).view(1, -1)
         ft_sample_resnet = torch.cat([ft[j, :] for ft in resnet_out], dim=0).view(1, -1)
-        ft_sample = torch.cat((ft_sample_vgg, ft_sample_resnet), dim=1)
+        ft_sample_disc = torch.cat([ft[j, :] for ft in disc_feats], dim=0).view(1, -1)
+        ft_sample = torch.cat((ft_sample_vgg, ft_sample_resnet, ft_sample_disc), dim=1)
         feats.append(ft_sample)
     return torch.cat(feats, dim=0)
 
@@ -213,37 +241,76 @@ avrg_cycle_loss = 0.0
 avrg_combined_loss = 0.0
 
 save_num = 0
+
+def hinge_loss_discriminator(fake_preds, real_preds):
+    rpl = torch.min(real_preds - 1, torch.zeros_like(real_preds))
+    fpl = torch.min(-fake_preds - 1, torch.zeros_like(fake_preds))
+    return -torch.mean(
+        torch.add(rpl, fpl))
+
+
+def hinge_loss_generator(fake_preds):
+    return -torch.mean(fake_preds)
+
 print('~~~~~~~~~~~~Starting Training~~~~~~~~~~~~~~~~')
 os.sys.stdout.flush()
 for epoch in tqdm(range(NUM_ITERATIONS)):
     for i, data in tqdm(enumerate(zip(trainloader_horses, trainloader_zebras), 1)):
-        generator_horses.zero_grad()
-        mean_net_horses.zero_grad()
-        var_net_horses.zero_grad()
-        generator_zebras.zero_grad()
-        mean_net_zebras.zero_grad()
-        var_net_zebras.zero_grad()
-        vgg_pretrained.zero_grad()
+        discriminator_horses.zero_grad()
+        discriminator_zebras.zero_grad()
 
         horse_batch = data[0][0].to(device)
         zebra_batch = data[1][0].to(device)
+        jitter_real = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+                                                                           0.05 * (0.99 ** epoch))
+        jitter_fake = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+                                                                           0.05 * (0.99 ** epoch))
+
+        real_horses_preds, real_horses_disc_feats = discriminator_horses(torch.clamp(horse_batch+jitter_real, -1, 1))
+        real_zebras_preds, real_zebras_disc_feats = discriminator_zebras(torch.clamp(zebra_batch+jitter_real, -1, 1))
 
         fake_zebras = generator_zebras(horse_batch)
+        fake_zebras_preds, fake_zebras_disc_feats = discriminator_zebras(torch.clamp(fake_zebras.detach()+jitter_fake, -1, 1))
         #fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
-        fake_zebras = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
-        fake_features_zebras = extract_features_from_batch(fake_zebras)
+        fake_zebras_normalized = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_zebras = extract_features_from_batch(fake_zebras_normalized, fake_zebras_disc_feats)
 
-        recycled_horses = generator_horses(fake_zebras)
-        cycle_loss_horses = criterionCycleLoss(recycled_horses, horse_batch)
+        recycled_horses = generator_horses(fake_zebras_normalized)
 
         fake_horses = generator_horses(zebra_batch)
         # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
-        fake_horses = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
-        fake_features_horses = extract_features_from_batch(fake_horses)
+        fake_horses_preds, fake_horses_disc_feats = discriminator_horses(torch.clamp(fake_horses.detach() + jitter_fake, -1, 1))
+        fake_horses_normalized = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
+        fake_features_horses = extract_features_from_batch(fake_horses_normalized, fake_horses_disc_feats)
 
-        recycled_zebras = generator_zebras(fake_horses)
+        recycled_zebras = generator_zebras(fake_horses_normalized)
+
+        discriminator_horses_loss = hinge_loss_discriminator(fake_horses_preds, real_horses_preds)
+        discriminator_horses_loss.backward()
+        optimizerD_horses.step()
+
+        discriminator_zebras_loss = hinge_loss_discriminator(fake_zebras_preds, real_zebras_preds)
+        discriminator_zebras_loss.backward()
+        optimizerD_zebras.step()
+
+        generator_horses.zero_grad()
+        mean_net_horses.zero_grad()
+        var_net_horses.zero_grad()
+        mean_net_horses_disc.zero_grad()
+        var_net_horses_disc.zero_grad()
+        generator_zebras.zero_grad()
+        mean_net_zebras.zero_grad()
+        var_net_zebras.zero_grad()
+        mean_net_zebras_disc.zero_grad()
+        var_net_zebras_disc.zero_grad()
+        vgg_pretrained.zero_grad()
+        resnet_pretrained.zero_grad()
+
         cycle_loss_zebras = criterionCycleLoss(recycled_zebras, zebra_batch)
+        cycle_loss_horses = criterionCycleLoss(recycled_horses, horse_batch)
 
+        fake_horses_preds, fake_horses_disc_feats = discriminator_zebras(fake_horses)
+        fake_zebras_preds, fake_zebras_disc_feats = discriminator_zebras(fake_zebras)
         # Horses Update
         fake_mean_horses = torch.mean(fake_features_horses, 0)
         real_fake_difference_mean_horses = real_mean_horses.detach() - fake_mean_horses.detach()

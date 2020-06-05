@@ -29,14 +29,14 @@ class ResnetGenerator(nn.Module):
         model = [nn.ReflectionPad2d(3),
                  nn.Conv2d(input_nc, ngf, kernel_size=7, padding=0, bias=use_bias),
                  norm_layer(ngf),
-                 nn.ReLU(True)]
+                 nn.LeakyReLU(0.2, True)]
 
         n_downsampling = 2
         for i in range(n_downsampling):  # add downsampling layers
             mult = 2 ** i
-            model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias),
-                      norm_layer(ngf * mult * 2),
-                      nn.ReLU(True)]
+            model += [nn.spectral_norm(nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias),
+                      norm_layer(ngf * mult * 2), eps=1e-8),
+                      nn.LeakyReLU(0.2, True)]
 
         mult = 2 ** n_downsampling
         for i in range(n_blocks):       # add ResNet blocks
@@ -45,10 +45,10 @@ class ResnetGenerator(nn.Module):
 
         for i in range(n_downsampling):  # add upsampling layers
             mult = 2 ** (n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+            model += [nn.utils.spectral_norm(nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
                                          kernel_size=3, stride=2,
                                          padding=1, output_padding=1,
-                                         bias=use_bias),
+                                         bias=use_bias), eps=1e-8),
                       norm_layer(int(ngf * mult / 2)),
                       nn.ReLU(True)]
         model += [nn.ReflectionPad2d(3)]
@@ -96,7 +96,7 @@ class ResnetBlock(nn.Module):
         else:
             raise NotImplementedError('padding [%s] is not implemented' % padding_type)
 
-        conv_block += [nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), norm_layer(dim), nn.ReLU(True)]
+        conv_block += [nn.utils.spectral_norm(nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), eps=1e-8), norm_layer(dim), nn.LeakyReLU(0.2, True)]
         if use_dropout:
             conv_block += [nn.Dropout(0.5)]
 
@@ -109,7 +109,7 @@ class ResnetBlock(nn.Module):
             p = 1
         else:
             raise NotImplementedError('padding [%s] is not implemented' % padding_type)
-        conv_block += [nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), norm_layer(dim)]
+        conv_block += [nn.utils.spectral_norm(nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias), eps=1e-8), norm_layer(dim)]
 
         return nn.Sequential(*conv_block)
 
@@ -138,24 +138,24 @@ class Discriminator_block(nn.Module):
 
 
 class MultiscaleDiscriminator(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self):
         super().__init__()
+
         self.avg_pool = torch.nn.AvgPool2d(kernel_size=3,
                             stride=2, padding=[1, 1],
                             count_include_pad=False)
-        self.subnetD1 = GauGANDiscriminator(in_channels)
-        self.subnetD2 = GauGANDiscriminator(in_channels)
+        self.subnetD1 = PatchDiscriminator()
+        self.subnetD2 = PatchDiscriminator()
         #self.subnetD3 = GauGANDiscriminator(in_channels)
 
-    def forward(self, x, mask):
+    def forward(self, x):
         outs = []
         preds = []
-        out, pred = self.subnetD1(x, mask)
+        out, pred = self.subnetD1(x)
         x = self.avg_pool(x)
-        mask = self.avg_pool(mask)
         outs.append(out)
         preds.append(pred)
-        out, pred = self.subnetD2(x, mask)
+        out, pred = self.subnetD2(x)
         #x = self.avg_pool(x)
         #mask = self.avg_pool(mask)
         outs.append(out)
@@ -166,18 +166,17 @@ class MultiscaleDiscriminator(nn.Module):
         return outs, preds
 
 
-class GauGANDiscriminator(nn.Module):
-    def __init__(self, in_channels):
-        super(GauGANDiscriminator, self).__init__()
-        self.block_1 = Discriminator_block(in_channels, 64,  normalization=False)
+class PatchDiscriminator(nn.Module):
+    def __init__(self):
+        super(PatchDiscriminator, self).__init__()
+        self.block_1 = Discriminator_block(3, 64,  normalization=False)
         self.block_2 = Discriminator_block(64, 128)
         self.block_3 = Discriminator_block(128, 256)
         self.block_4 = Discriminator_block(256, 512)
         self.out_conv = nn.Conv2d(512, 1, kernel_size=4, padding=1)
 
-    def forward(self, x, mask):
-        input = torch.cat((x, mask), 1)
-        x1 = self.block_1(input)
+    def forward(self, x):
+        x1 = self.block_1(x)
         x2 = self.block_2(x1)
         x3 = self.block_3(x2)
         x4 = self.block_4(x3)
