@@ -274,17 +274,21 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
 
         horse_batch = data[0][0].to(device)
         zebra_batch = data[1][0].to(device)
-        jitter_real = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+        jitter_real_h = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
-        jitter_fake = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+        jitter_real_z = torch.empty_like(horse_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+                                                                            0.05 * (0.99 ** epoch))
+        jitter_fake_h = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
+                                                                            0.05 * (0.99 ** epoch))
+        jitter_fake_z = torch.empty_like(zebra_batch, device=device).uniform_(-0.05 * (0.99 ** epoch),
                                                                             0.05 * (0.99 ** epoch))
 
-        real_horses_preds, real_horses_disc_feats = discriminator_horses(torch.clamp(horse_batch + jitter_real, -1, 1))
-        real_zebras_preds, real_zebras_disc_feats = discriminator_zebras(torch.clamp(zebra_batch + jitter_real, -1, 1))
+        real_horses_preds, real_horses_disc_feats = discriminator_horses(torch.clamp(horse_batch + jitter_real_h, -1, 1))
+        real_zebras_preds, real_zebras_disc_feats = discriminator_zebras(torch.clamp(zebra_batch + jitter_real_z, -1, 1))
 
         fake_zebras = generator_zebras(horse_batch)
         fake_zebras_preds, fake_zebras_disc_feats = discriminator_zebras(
-            torch.clamp(fake_zebras.detach() + jitter_fake, -1, 1))
+            torch.clamp(fake_zebras.detach() + jitter_fake_z, -1, 1))
         fake_zebras_normalized = (((fake_zebras + 1) * imageNetNormRange) / 2) + imageNetNormMin
         recycled_horses = generator_horses(fake_zebras_normalized)
         # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
@@ -292,7 +296,7 @@ for epoch in tqdm(range(NUM_ITERATIONS)):
         fake_horses = generator_horses(zebra_batch)
         # fake_imgs = ((fake_imgs*0.5 + 0.5) - imageNetNormMean) / imageNetNormStd
         fake_horses_preds, fake_horses_disc_feats = discriminator_horses(
-            torch.clamp(fake_horses.detach() + jitter_fake, -1, 1))
+            torch.clamp(fake_horses.detach() + jitter_fake_h, -1, 1))
         fake_horses_normalized = (((fake_horses + 1) * imageNetNormRange) / 2) + imageNetNormMin
         recycled_zebras = generator_zebras(fake_horses_normalized)
 
